@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Models\Transaccion;
+use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Filament\Widgets\Concerns\InteractsWithPageFilters; // <--- LA MAGIA PARA ESCUCHAR AL DASHBOARD
@@ -10,6 +11,7 @@ use Carbon\Carbon;
 
 class StatsOverview extends BaseWidget
 {
+    use HasWidgetShield;
     use InteractsWithPageFilters; // <--- HABILITAMOS LA CONEXIÓN
 
     protected static ?int $sort = 1;

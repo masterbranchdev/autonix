@@ -3,11 +3,14 @@
 namespace App\Filament\Widgets;
 
 use App\Models\OrdenServicio;
+use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
 class EstatusVehiculosWidget extends BaseWidget
 {
+    use HasWidgetShield;
+
     // Esto hace que el widget abarque todo el ancho de la pantalla
     protected int | string | array $columnSpan = 'full';
 

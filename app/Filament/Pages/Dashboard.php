@@ -9,6 +9,7 @@ use Filament\Pages\Dashboard\Concerns\HasFiltersForm;
 
 class Dashboard extends \Filament\Pages\Dashboard
 {
+    // Solo dejamos el trait de los filtros, quitamos el HasWidgetShield de aquí
     use HasFiltersForm;
 
     // LA MAGIA: Esto coloca el widget en el encabezado absoluto de la página
@@ -36,7 +37,8 @@ class Dashboard extends \Filament\Pages\Dashboard
                             ->default(now()->endOfMonth())
                             ->live(),
                     ])
-                    ->columns(2),
+                    ->columns(2)
+
             ]);
     }
 }

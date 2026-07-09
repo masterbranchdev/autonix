@@ -3,12 +3,14 @@
 namespace App\Filament\Widgets;
 
 use App\Models\Transaccion;
+use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
 use Filament\Widgets\ChartWidget;
 use Filament\Widgets\Concerns\InteractsWithPageFilters; // <--- ESCUCHA EL DASHBOARD MAESTRO
 use Carbon\Carbon;
 
 class IngresosEgresosChart extends ChartWidget
 {
+    use HasWidgetShield;
     use InteractsWithPageFilters; // <--- HABILITAMOS LA CONEXIÓN
 
     protected static ?string $heading = 'Flujo de Efectivo';

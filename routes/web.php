@@ -5,15 +5,15 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\Transaccion;
 use Illuminate\Http\Request;
 
-Route::view('/', 'welcome');
+//Route::view('/', 'welcome');
 
-Route::view('dashboard', 'dashboard')
-    ->middleware(['auth', 'verified'])
-    ->name('dashboard');
-
-Route::view('profile', 'profile')
-    ->middleware(['auth'])
-    ->name('profile');
+//Route::view('dashboard', 'dashboard')
+//    ->middleware(['auth', 'verified'])
+//    ->name('dashboard');
+//
+//Route::view('profile', 'profile')
+//    ->middleware(['auth'])
+//    ->name('profile');
 
 // --- RUTAS DE AUTONIX SAAS ---
 // Ruta para imprimir la Orden de Servicio en PDF/Web
@@ -149,4 +149,4 @@ Route::get('/finanzas/corte', function (Request $request) {
 
 // -----------------------------
 
-require __DIR__.'/auth.php';
+//require __DIR__.'/auth.php';
