@@ -64,9 +64,21 @@
     🖨️ Imprimir Orden de Servicio
 </button>
 
+@php
+    $taller = $orden->taller ?? auth()->user()->taller;
+    $logoBase64 = null;
+    if($taller && $taller->logo_path) {
+        try {
+            $img = \Illuminate\Support\Facades\Storage::disk('s3')->get($taller->logo_path);
+            $mime = \Illuminate\Support\Facades\Storage::disk('s3')->mimeType($taller->logo_path);
+            $logoBase64 = 'data:' . $mime . ';base64,' . base64_encode($img);
+        } catch (\Exception $e) {}
+    }
+@endphp
+
 <div class="header">
     <div class="header-logo">
-        {{ $orden->taller->nombre_comercial ?? auth()->user()->taller->nombre_comercial ?? 'TALLER MECÁNICO' }}
+        <img src="{{ $logoBase64 }}" style="max-height: 50px;">
     </div>
 
     <div class="header-title">
@@ -219,8 +231,8 @@
 
 @if($orden->taller)
     <div class="footer-taller" style="text-align: center; margin-top: 15px; font-size: 8px; color: #4b5563; border-top: 1px solid #e5e7eb; padding-top: 5px;">
-        @if($orden->taller->logo_path)
-            <img src="{{ asset('storage/'.$orden->taller->logo_path) }}" style="max-height: 25px; margin-bottom: 3px;"><br>
+        @if($logoBase64)
+            <img src="{{ $logoBase64 }}" style="max-height: 25px; margin-bottom: 3px;"><br>
         @endif
         <div style="font-weight: bold; font-size: 9px; margin-bottom: 2px;">{{ $orden->taller->nombre_comercial }}</div>
         <div style="margin-bottom: 2px;">{{ $orden->taller->domicilio }}</div>

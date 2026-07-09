@@ -13,4 +13,10 @@ class CotizacionItem extends Model
     {
         return $this->belongsTo(Cotizacion::class);
     }
+
+    public function articulo()
+    {
+        return $this->belongsTo(Articulo::class);
+    }
+
 }

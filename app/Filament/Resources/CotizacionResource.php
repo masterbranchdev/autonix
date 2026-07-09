@@ -16,10 +16,13 @@ class CotizacionResource extends Resource
 {
     protected static ?string $model = Cotizacion::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-currency-dollar';
-    protected static ?string $navigationLabel = 'Cotizaciones';
-    protected static ?string $pluralModelLabel = 'Cotizaciones';
+    protected static ?string $navigationGroup = 'Administración';
     protected static ?string $modelLabel = 'Cotización';
+    protected static ?string $pluralModelLabel = 'Cotizaciones';
+    protected static ?string $navigationIcon = 'heroicon-o-document-currency-dollar';
+    protected static ?int $navigationSort = 1;
+
+
 
     // --- EL CEREBRO DE LAS MATEMÁTICAS EN TIEMPO REAL ---
     public static function updateTotals(Get $get, Set $set): void
@@ -155,10 +158,14 @@ class CotizacionResource extends Resource
                         \Filament\Forms\Components\Repeater::make('items')
                             ->relationship()
                             ->schema([
-                                // 1. BUSCADOR DE CATÁLOGO (Auto-llena los datos)
+                                // 1. BUSCADOR DE CATÁLOGO (Auto-llena los datos y guarda el ID)
                                 \Filament\Forms\Components\Select::make('articulo_id')
                                     ->label('Buscar Catálogo')
-                                    ->options(fn () => \App\Models\Articulo::where('taller_id', auth()->user()->taller_id)->pluck('nombre', 'id'))
+                                    // Filtramos para que solo muestre Productos que controlan stock
+                                    ->options(fn () => \App\Models\Articulo::where('taller_id', auth()->user()->taller_id)
+                                        ->where('tipo', 'Producto')
+                                        ->where('maneja_stock', true)
+                                        ->pluck('nombre', 'id'))
                                     ->searchable()
                                     ->live()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
@@ -270,6 +277,12 @@ class CotizacionResource extends Resource
     {
         return $table
             ->columns([
+                \Filament\Tables\Columns\TextColumn::make('ordenServicio.folio')
+                    ->label('Orden de Servicio')
+                    ->searchable()
+                    ->sortable()
+                    ->color('primary')
+                    ->weight('bold'),
                 \Filament\Tables\Columns\TextColumn::make('folio')->searchable()->weight('bold'),
                 \Filament\Tables\Columns\TextColumn::make('ordenServicio.vehiculo.placas')->label('Vehículo')->searchable(),
                 \Filament\Tables\Columns\BadgeColumn::make('estatus')
@@ -279,19 +292,174 @@ class CotizacionResource extends Resource
                         'success' => 'Aprobada',
                         'danger' => 'Rechazada',
                     ]),
+                // Indicador visual premium si ya está pagado
+                \Filament\Tables\Columns\IconColumn::make('pagado')
+                    ->label('Pago')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-check-badge')
+                    ->falseIcon('heroicon-o-clock')
+                    ->trueColor('success')
+                    ->falseColor('warning'),
+                \Filament\Tables\Columns\IconColumn::make('factura_solicitada')
+                    ->label('Factura')
+                    ->getStateUsing(function (\App\Models\Cotizacion $record) {
+                        // Busca el pago asociado a esta cotización en la tabla de transacciones
+                        $transaccion = \App\Models\Transaccion::where('cotizacion_id', $record->id)->first();
+                        return $transaccion ? (bool) $transaccion->requiere_factura : false;
+                    })
+                    ->boolean()
+                    ->trueIcon('heroicon-o-document-text') // Muestra un documento si pidió factura
+                    ->falseIcon('heroicon-o-minus')        // Muestra una rayita si no pidió
+                    ->trueColor('success')
+                    ->falseColor('gray')
+                    ->tooltip('Indica si el cliente solicitó factura al realizar el pago'),
+                // -------------------------------------------
+
                 \Filament\Tables\Columns\TextColumn::make('total')->money('mxn')->weight('bold'),
-                \Filament\Tables\Columns\TextColumn::make('created_at')->label('Fecha')->dateTime('d/m/Y'),
+                \Filament\Tables\Columns\TextColumn::make('created_at')->label('Fecha')->sortable()->dateTime('d/m/Y'),
             ])
+
             ->actions([
                 \Filament\Tables\Actions\EditAction::make(),
 
-                // Botón de imprimir cotización
+                // --- NUEVO: BOTÓN DE CAMBIO RÁPIDO DE ESTATUS ---
+                \Filament\Tables\Actions\Action::make('cambiar_estatus')
+                    ->label('Estatus')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('warning')
+                    ->modalHeading('Actualizar Estatus de la Cotización')
+                    ->modalWidth('sm')
+                    ->form([
+                        \Filament\Forms\Components\Select::make('estatus')
+                            ->hiddenLabel()
+                            ->options([
+                                'Borrador' => 'Borrador',
+                                'Enviada' => 'Enviada al Cliente',
+                                'Aprobada' => 'Aprobada',
+                                'Rechazada' => 'Rechazada',
+                            ])
+                            ->default(fn (\App\Models\Cotizacion $record) => $record->estatus)
+                            ->required(),
+                    ])
+                    ->action(function (\App\Models\Cotizacion $record, array $data): void {
+                        $record->update(['estatus' => $data['estatus']]);
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Estatus actualizado a: ' . $data['estatus'])
+                            ->success()
+                            ->send();
+                    }),
+                // --- FIN DEL NUEVO BOTÓN ---
+
+                // EL BOTÓN DE COBRO (MODAL ACTUALIZADO CON REFERENCIA)
+                \Filament\Tables\Actions\Action::make('cobrar')
+                    ->label('Cobrar')
+                    ->icon('heroicon-o-banknotes')
+                    ->color('success')
+//                    ->hidden(fn (\App\Models\Cotizacion $record) => $record->pagado)
+                    ->modalHeading(fn (\App\Models\Cotizacion $record) => 'Cobrar Folio: ' . $record->folio)
+                    ->modalDescription('Confirme el método de pago y registre el folio de rastreo si aplica.')
+                    ->modalSubmitActionLabel('Registrar Ingreso')
+                    ->form([
+                        \Filament\Forms\Components\TextInput::make('monto_a_cobrar')
+                            ->label('Monto Total a Cobrar')
+                            ->default(fn (\App\Models\Cotizacion $record) => $record->total)
+                            ->disabled()
+                            ->numeric()
+                            ->prefix('$'),
+
+                        \Filament\Forms\Components\Select::make('metodo_pago')
+                            ->label('Método de Pago')
+                            ->options([
+                                'Efectivo' => 'Efectivo',
+                                'Tarjeta de Débito' => 'Tarjeta de Débito',
+                                'Tarjeta de Crédito' => 'Tarjeta de Crédito',
+                                'Transferencia SPEI' => 'Transferencia SPEI',
+                            ])
+                            ->required()
+                            ->live(), // Hace que el formulario escuche el cambio al instante
+
+                        // CAMPO DINÁMICO DE REFERENCIA
+                        \Filament\Forms\Components\TextInput::make('referencia')
+                            ->label('Número de Referencia / Autorización')
+                            ->placeholder('Ej. 0928374')
+                            // Solo es obligatorio y visible si NO es efectivo
+                            ->required(fn (\Filament\Forms\Get $get) => in_array($get('metodo_pago'), ['Tarjeta de Débito', 'Tarjeta de Crédito', 'Transferencia SPEI']))
+                            ->visible(fn (\Filament\Forms\Get $get) => in_array($get('metodo_pago'), ['Tarjeta de Débito', 'Tarjeta de Crédito', 'Transferencia SPEI'])),
+
+                        \Filament\Forms\Components\Toggle::make('requiere_factura')
+                            ->label('El cliente solicita Factura (CFDI)')
+                            ->inline(false)
+                            ->onColor('success'),
+                    ])
+                    ->action(function (\App\Models\Cotizacion $record, array $data) {
+                        // 1. Registramos el ingreso con todo y referencia
+                        \App\Models\Transaccion::create([
+                            'taller_id' => $record->taller_id,
+                            'cotizacion_id' => $record->id,
+                            'tipo' => 'Ingreso',
+                            // --- ESTA ES LA LÍNEA QUE CAMBIAMOS ---
+                            'concepto' => "Pago de cotización: {$record->folio} orden de servicio: {$record->ordenServicio->folio}",
+                            // --------------------------------------
+                            'monto' => $record->total,
+                            'metodo_pago' => $data['metodo_pago'],
+                            'referencia' => $data['referencia'] ?? null, // Guardamos el rastreo
+                            'requiere_factura' => $data['requiere_factura'],
+                            'fecha' => now(),
+                        ]);
+
+                        // 2. Marcamos la cotización como pagada
+                        $record->update([
+                            'pagado' => true,
+                            'estatus' => 'Aprobada'
+                        ]);
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('¡Cobro exitoso!')
+                            ->body('El ingreso y la referencia se han guardado correctamente.')
+                            ->success()
+                            ->send();
+                    }),
+
                 \Filament\Tables\Actions\Action::make('imprimir')
                     ->label('PDF')
                     ->icon('heroicon-o-printer')
                     ->color('danger')
                     ->url(fn (\App\Models\Cotizacion $record) => route('cotizacion.imprimir', $record))
                     ->openUrlInNewTab(),
+
+                // EL BOTÓN MÁGICO DE WHATSAPP
+                \Filament\Tables\Actions\Action::make('whatsapp')
+                    ->label('WhatsApp')
+                    ->icon('heroicon-o-chat-bubble-left-right')
+                    ->color('success')
+                    ->url(function (\App\Models\Cotizacion $record) {
+                        $orden = $record->ordenServicio;
+                        $vehiculo = $orden->vehiculo;
+                        $cliente = $vehiculo->cliente;
+                        $taller = $orden->taller;
+
+                        // 1. Limpiamos el teléfono (quitamos espacios o guiones)
+                        $telefono = preg_replace('/[^0-9]/', '', $cliente->telefono);
+
+                        // 2. Si el teléfono tiene 10 dígitos, le agregamos el +52 automáticamente
+                        if (strlen($telefono) == 10) {
+                            $telefono = '52' . $telefono;
+                        }
+
+                        // 3. Generamos el link público
+                        $link = route('portal.status', $orden->token_url);
+                        $nombreTaller = $taller ? $taller->nombre_comercial : 'Autonix';
+
+                        // 4. Redactamos el mensaje persuasivo y claro
+                        $mensaje = "Hola *{$cliente->nombre}*, somos de *{$nombreTaller}* 👨‍🔧.\n\nTe compartimos el estatus actualizado y el presupuesto de tu *{$vehiculo->marca} {$vehiculo->modelo}*.\n\nPuedes revisarlo y aprobarlo directo en este enlace seguro:\n👉 {$link}\n\nQuedamos a tu disposición por cualquier duda.";
+
+                        // 5. Retornamos la URL oficial de la API de WhatsApp
+                        return 'https://api.whatsapp.com/send?phone=' . $telefono . '&text=' . urlencode($mensaje);
+                    })
+                    ->openUrlInNewTab(),
+
+
             ]);
     }
 

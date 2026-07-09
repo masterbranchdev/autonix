@@ -46,12 +46,23 @@
     $taller = $cotizacion->ordenServicio->taller ?? auth()->user()->taller;
     $vehiculo = $cotizacion->ordenServicio->vehiculo;
     $cliente = $vehiculo->cliente;
+
+    $logoBase64 = null;
+    if($taller && $taller->logo_path) {
+        try {
+            $img = \Illuminate\Support\Facades\Storage::disk('s3')->get($taller->logo_path);
+            $mime = \Illuminate\Support\Facades\Storage::disk('s3')->mimeType($taller->logo_path);
+            $logoBase64 = 'data:' . $mime . ';base64,' . base64_encode($img);
+        } catch (\Exception $e) {}
+    }
 @endphp
 
 <div class="header-grid">
     <div class="logo-box">
-        @if($taller && $taller->logo_path)
-            <img src="{{ asset('storage/'.$taller->logo_path) }}" style="max-height: 50px;">
+        @if($logoBase64)
+            <img src="{{ $logoBase64 }}" style="max-height: 50px;">
+            <br>
+            <h2 style="margin:0;">{{ $taller->nombre_comercial ?? 'TALLER' }}</h2>
         @else
             <h2 style="margin:0;">{{ $taller->nombre_comercial ?? 'TALLER' }}</h2>
         @endif

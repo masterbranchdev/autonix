@@ -17,7 +17,11 @@ class OrdenServicioResource extends Resource
 {
     protected static ?string $model = OrdenServicio::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationGroup = 'Operación del Taller';
+    protected static ?string $modelLabel = 'Orden de Servicio';
+    protected static ?string $pluralModelLabel = 'Órdenes de Servicio';
+    protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-list';
+    protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form
     {
@@ -44,8 +48,25 @@ class OrdenServicioResource extends Resource
 
                 \Filament\Forms\Components\DateTimePicker::make('fecha_ingreso')
                     ->label('Fecha y hora de ingreso')
-                    ->default(fn () => now()) // La función "fn () =>" captura la hora en vivo
+                    ->default(fn () => now())
                     ->required(),
+
+                // --- INICIO DEL NUEVO SELECTOR DE ESTATUS ---
+                \Filament\Forms\Components\Select::make('estatus')
+                    ->label('Estatus del Vehículo')
+                    ->options([
+                        'Ingresado' => 'Ingresado (Paso 1)',
+                        'En Revisión' => 'En Revisión (Paso 2)',
+                        'Cotizando' => 'Cotizando (Paso 3)',
+                        'En Reparación' => 'En Reparación (Paso 4)',
+                        'Revisión Final' => 'Revisión Final (Paso 5)',
+                        'Listo' => 'Listo para entrega (Paso 6)',
+                        'Entregado' => 'Vehículo Entregado (Paso 7)',
+                    ])
+                    ->default('Ingresado') // Por defecto arranca en el paso 1
+                    ->required()
+                    ->columnSpanFull(),
+                // --- FIN DEL NUEVO SELECTOR ---
 
                 \Filament\Forms\Components\Select::make('nivel_gasolina')
                     ->options([
@@ -236,10 +257,15 @@ class OrdenServicioResource extends Resource
                     ->sortable(),
                 \Filament\Tables\Columns\BadgeColumn::make('estatus')
                     ->colors([
-                        'primary' => 'Ingresado',
+                        'gray' => 'Ingresado',
                         'warning' => 'En Revisión',
-                        'success' => 'Listo',
-                    ]),
+                        'info' => 'Cotizando',
+                        'danger' => 'En Reparación',
+                        'primary' => 'Revisión Final',
+                        'success' => fn ($state) => in_array($state, ['Listo', 'Entregado']),
+                    ])
+                    ->sortable()
+                    ->searchable(),
             ])
             ->filters([
                 //
@@ -247,12 +273,68 @@ class OrdenServicioResource extends Resource
             ->actions([
                 \Filament\Tables\Actions\EditAction::make(),
 
+                // --- NUEVO: BOTÓN DE CAMBIO RÁPIDO DE ESTATUS ---
+                \Filament\Tables\Actions\Action::make('cambiar_estatus')
+                    ->label('Estatus')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('warning')
+                    ->modalHeading('Actualizar Estatus del Vehículo')
+                    ->modalWidth('sm')
+                    ->form([
+                        \Filament\Forms\Components\Select::make('estatus')
+                            ->hiddenLabel()
+                            ->options([
+                                'Ingresado' => 'Ingresado (Paso 1)',
+                                'En Revisión' => 'En Revisión (Paso 2)',
+                                'Cotizando' => 'Cotizando (Paso 3)',
+                                'En Reparación' => 'En Reparación (Paso 4)',
+                                'Revisión Final' => 'Revisión Final (Paso 5)',
+                                'Listo' => 'Listo para entrega (Paso 6)',
+                                'Entregado' => 'Vehículo Entregado (Paso 7)',
+                            ])
+                            ->default(fn (\App\Models\OrdenServicio $record) => $record->estatus)
+                            ->required(),
+                    ])
+                    ->action(function (\App\Models\OrdenServicio $record, array $data): void {
+                        $record->update(['estatus' => $data['estatus']]);
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Estatus actualizado a: ' . $data['estatus'])
+                            ->success()
+                            ->send();
+                    }),
+                // --- FIN DEL NUEVO BOTÓN ---
+
+
                 // Botón de imprimir
                 \Filament\Tables\Actions\Action::make('imprimir')
                     ->label('Imprimir')
                     ->icon('heroicon-o-printer')
                     ->color('success')
                     ->url(fn (\App\Models\OrdenServicio $record) => route('orden.imprimir', $record))
+                    ->openUrlInNewTab(),
+
+                // EL BOTÓN MÁGICO DE WHATSAPP PARA LA RECEPCIÓN
+                \Filament\Tables\Actions\Action::make('whatsapp')
+                    ->label('WhatsApp')
+                    ->icon('heroicon-o-chat-bubble-left-right')
+                    ->color('success')
+                    ->url(function (\App\Models\OrdenServicio $record) {
+                        $vehiculo = $record->vehiculo;
+                        $cliente = $vehiculo->cliente;
+                        $taller = $record->taller;
+
+                        $telefono = preg_replace('/[^0-9]/', '', $cliente->telefono);
+                        if (strlen($telefono) == 10) { $telefono = '52' . $telefono; }
+
+                        $link = route('portal.status', $record->token_url);
+                        $nombreTaller = $taller ? $taller->nombre_comercial : 'Autonix';
+
+                        // Mensaje de bienvenida inicial
+                        $mensaje = "Hola *{$cliente->nombre}*, bienvenido a *{$nombreTaller}* 👨‍🔧.\n\nHemos recibido tu *{$vehiculo->marca} {$vehiculo->modelo}*.\n\nEn este enlace único podrás ver el *Tracker en tiempo real* de tu servicio, tus inspecciones, cotizaciones y el historial completo de tu auto:\n👉 {$link}\n\nTe notificaremos por aquí cuando haya actualizaciones.";
+
+                        return 'https://api.whatsapp.com/send?phone=' . $telefono . '&text=' . urlencode($mensaje);
+                    })
                     ->openUrlInNewTab(),
             ]);
     }

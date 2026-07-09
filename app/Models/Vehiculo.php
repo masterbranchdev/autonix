@@ -13,4 +13,11 @@ class Vehiculo extends Model
     {
         return $this->belongsTo(Cliente::class);
     }
+
+    public function ordenesServicio()
+    {
+        // Un vehículo puede tener muchas órdenes de servicio en su historia
+        return $this->hasMany(OrdenServicio::class);
+    }
+
 }

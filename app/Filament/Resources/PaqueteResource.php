@@ -17,7 +17,11 @@ class PaqueteResource extends Resource
 {
     protected static ?string $model = Paquete::class;
 
+    protected static ?string $navigationGroup = 'Catálogos e Inventario';
+    protected static ?string $modelLabel = 'Paquete';
+    protected static ?string $pluralModelLabel = 'Paquetes Prearmados';
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?int $navigationSort = 2;
 
     public static function form(Form $form): Form
     {
@@ -51,13 +55,29 @@ class PaqueteResource extends Resource
     {
         return $table
             ->columns([
-                //
+                \Filament\Tables\Columns\TextColumn::make('nombre')
+                    ->label('Nombre del Paquete')
+                    ->searchable()
+                    ->sortable()
+                    ->weight('bold'),
+
+                \Filament\Tables\Columns\TextColumn::make('descripcion')
+                    ->label('Descripción')
+                    ->limit(50) // Corta el texto si es muy largo
+                    ->searchable(),
+
+                \Filament\Tables\Columns\TextColumn::make('total_elementos')
+                    ->label('Contenido')
+                    ->badge()
+                    ->color('info')
+                    ->getStateUsing(fn (\App\Models\Paquete $record) => is_array($record->items) ? count($record->items) . ' elementos' : '0 elementos'),
             ])
             ->filters([
                 //
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(), // Agregamos botón rápido para borrar
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

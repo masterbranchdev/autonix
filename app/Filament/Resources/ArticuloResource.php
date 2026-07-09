@@ -17,7 +17,12 @@ class ArticuloResource extends Resource
 {
     protected static ?string $model = Articulo::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationGroup = 'Catálogos e Inventario';
+    protected static ?string $navigationLabel = 'Catálogo (Refacciones / M.O.)';
+    protected static ?string $modelLabel = 'Artículo';
+    protected static ?string $pluralModelLabel = 'Artículos';
+    protected static ?string $navigationIcon = 'heroicon-o-swatch';
+    protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form
     {

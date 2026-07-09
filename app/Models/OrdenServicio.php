@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class OrdenServicio extends Model
 {
@@ -14,12 +15,18 @@ class OrdenServicio extends Model
         'ingreso_grua' => 'boolean',
         'testigos' => 'array',           // <--- NUEVO
         'danios_carroceria' => 'array',  // <--- NUEVO
+        'fecha_ingreso' => 'datetime',
     ];
 
 // LA MAGIA DEL FOLIO AUTOMÁTICO (Globalmente Único por Taller)
     protected static function booted()
     {
         static::creating(function ($orden) {
+
+            if (empty($orden->token_url)) {
+                $orden->token_url = Str::random(32);
+            }
+
             // Solo lo generamos si viene vacío
             if (empty($orden->folio)) {
                 $anioActual = now()->year;
@@ -46,5 +53,18 @@ class OrdenServicio extends Model
     {
         return $this->belongsTo(Taller::class);
     }
+
+    public function cotizaciones()
+    {
+        // Una Orden de Servicio puede tener muchas cotizaciones
+        return $this->hasMany(Cotizacion::class);
+    }
+
+    public function inspecciones()
+    {
+        // Una orden de servicio puede tener múltiples registros de inspección
+        return $this->hasMany(Inspeccion::class);
+    }
+
 
 }
