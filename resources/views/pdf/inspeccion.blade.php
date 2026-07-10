@@ -35,6 +35,13 @@
         .corner-lbl { font-weight: bold; font-size: 8px; border-bottom: 1px solid #000; margin-bottom: 2px; }
         .status-bar { height: 4px; width: 100%; margin-top: 2px; }
 
+        .firmas-container { margin-top: 10px; page-break-inside: avoid; }
+        .firmas-grid { display: flex; justify-content: space-around; }
+        .firma-box { width: 40%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; min-height: 60px; text-align: center; }
+        .firma-img { max-height: 40px; max-width: 100%; object-fit: contain; }
+        .firma-line { width: 100%; border-top: 1px solid #374151; padding-top: 2px; font-weight: bold; font-size: 9px; }
+
+
         @media print { .no-print { display: none; } body { -webkit-print-color-adjust: exact; } }
         .footer-taller { text-align: center; margin-top: 10px; font-size: 8px; color: #4b5563; border-top: 1px solid #e5e7eb; padding-top: 5px; }
     </style>
@@ -48,7 +55,7 @@
     $vehiculo = $inspeccion->ordenServicio->vehiculo;
     $asesor = auth()->check() ? auth()->user()->name : 'Asesor de Servicio';
 
-    // MAGIA BASE 64
+    // 1. MAGIA BASE 64 PARA EL LOGO
     $logoBase64 = null;
     if($taller && $taller->logo_path) {
         try {
@@ -56,6 +63,23 @@
             $mime = \Illuminate\Support\Facades\Storage::disk('s3')->mimeType($taller->logo_path);
             $logoBase64 = 'data:' . $mime . ';base64,' . base64_encode($imagen);
         } catch (\Exception $e) {}
+    }
+
+    // 2. MAGIA BASE 64 PARA LA FIRMA
+    $firmaBase64 = null;
+    if($inspeccion->firma) {
+        if(str_starts_with($inspeccion->firma, 'data:image')) {
+            // A veces el plugin ya la guarda en base64 por defecto
+            $firmaBase64 = $inspeccion->firma;
+        } else {
+            try {
+                // Buscamos si la firma se guardó en S3 o en la carpeta local (public)
+                $disk = \Illuminate\Support\Facades\Storage::disk('public')->exists($inspeccion->firma) ? 'public' : 's3';
+                $imgFirma = \Illuminate\Support\Facades\Storage::disk($disk)->get($inspeccion->firma);
+                $mimeFirma = \Illuminate\Support\Facades\Storage::disk($disk)->mimeType($inspeccion->firma);
+                $firmaBase64 = 'data:' . $mimeFirma . ';base64,' . base64_encode($imgFirma);
+            } catch (\Exception $e) {}
+        }
     }
 @endphp
 
@@ -200,22 +224,23 @@
     </div>
 </div>
 
-<div style="margin-top: 15px; page-break-inside: avoid;">
-    <div style="display: flex; justify-content: space-around; text-align: center;">
-        <div style="width: 40%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; min-height: 50px;">
-            <div style="width: 100%; border-top: 1px solid #333; padding-top: 4px; font-weight: bold; font-size: 9px;">
-                ASESOR DE SERVICIO<br>
-                <span style="font-weight: normal; color: #4b5563;">{{ $asesor }}</span>
+<div class="firmas-container">
+    <div class="firmas-grid">
+        <div class="firma-box">
+            <div class="firma-line">
+                TALLER / ASESOR DE SERVICIO<br>
+                <span style="font-weight: normal; font-size: 10px; color: #4b5563;">{{ $asesor }}</span>
             </div>
         </div>
-
-        <div style="width: 40%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; min-height: 50px;">
-            @if($inspeccion->firma)
-                <img src="{{ $inspeccion->firma }}" style="max-height: 40px; max-width: 100%; object-fit: contain; margin-bottom: 2px;">
+        <div class="firma-box">
+            @if($firmaBase64)
+                <img src="{{ $firmaBase64 }}" class="firma-img" alt="Firma">
             @endif
-            <div style="width: 100%; border-top: 1px solid #333; padding-top: 4px; font-weight: bold; font-size: 9px;">
-                FIRMA DEL CLIENTE<br>
-                <span style="font-weight: normal; color: #4b5563;">{{ $vehiculo->cliente->nombre }}</span>
+            <div class="firma-line">
+                FIRMA DE CONFORMIDAD<br>
+                <span style="font-weight: normal; font-size: 10px; color: #4b5563;">
+                        {{ $orden->persona_que_entrega ?: ($orden->vehiculo->cliente->nombre ?? 'Firma del Cliente') }}
+                    </span>
             </div>
         </div>
     </div>

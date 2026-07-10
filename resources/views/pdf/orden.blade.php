@@ -65,14 +65,29 @@
     $taller = $orden->taller;
     $asesor = auth()->check() ? auth()->user()->name : 'Asesor de Servicio';
 
-    // MAGIA BASE 64
+    // 1. MAGIA BASE 64 PARA EL LOGO
     $logoBase64 = null;
     if($taller && $taller->logo_path) {
         try {
-            $imagen = \Illuminate\Support\Facades\Storage::disk('s3')->get($taller->logo_path);
+            $img = \Illuminate\Support\Facades\Storage::disk('s3')->get($taller->logo_path);
             $mime = \Illuminate\Support\Facades\Storage::disk('s3')->mimeType($taller->logo_path);
-            $logoBase64 = 'data:' . $mime . ';base64,' . base64_encode($imagen);
+            $logoBase64 = 'data:' . $mime . ';base64,' . base64_encode($img);
         } catch (\Exception $e) {}
+    }
+
+    // 2. MAGIA BASE 64 PARA LA FIRMA
+    $firmaBase64 = null;
+    if($orden->firma) {
+        if(str_starts_with($orden->firma, 'data:image')) {
+            $firmaBase64 = $orden->firma;
+        } else {
+            try {
+                $disk = \Illuminate\Support\Facades\Storage::disk('public')->exists($orden->firma) ? 'public' : 's3';
+                $imgFirma = \Illuminate\Support\Facades\Storage::disk($disk)->get($orden->firma);
+                $mimeFirma = \Illuminate\Support\Facades\Storage::disk($disk)->mimeType($orden->firma);
+                $firmaBase64 = 'data:' . $mimeFirma . ';base64,' . base64_encode($imgFirma);
+            } catch (\Exception $e) {}
+        }
     }
 @endphp
 
@@ -216,8 +231,8 @@
             </div>
         </div>
         <div class="firma-box">
-            @if($orden->firma)
-                <img src="{{ $orden->firma }}" class="firma-img" alt="Firma">
+            @if($firmaBase64)
+                <img src="{{ $firmaBase64 }}" class="firma-img" alt="Firma">
             @endif
             <div class="firma-line">
                 FIRMA DE CONFORMIDAD<br>
