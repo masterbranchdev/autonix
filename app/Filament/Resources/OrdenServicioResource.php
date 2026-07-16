@@ -199,38 +199,35 @@ class OrdenServicioResource extends Resource
                 \Filament\Forms\Components\Textarea::make('observaciones')
                     ->label('Síntomas o Fallas (Escribe aquí lo que reporta el cliente)')
                     ->columnSpanFull()
-                    // EL NUEVO BOTÓN MODERNO
+                    // TRUCO MAESTRO: Forzamos al navegador a redibujar el botón inyectándole el estado actual del contador de forma invisible
+                    ->extraAttributes(fn (\Filament\Forms\Get $get) => ['data-ia-count' => $get('consultas_ia_realizadas')])
                     ->hintAction(
                         \Filament\Forms\Components\Actions\Action::make('consultar_ia')
-                            // Texto dinámico: Le avisa al usuario cuántas le quedan
                             ->label(fn (\Filament\Forms\Get $get) => 'Sugerir Diagnóstico (' . (3 - (int)$get('consultas_ia_realizadas')) . ')')
-                            ->icon('heroicon-m-sparkles') // Ícono moderno
-                            ->color('primary') // Color a juego con la tarjeta
-                            ->button() // MAGIA: Lo convierte de un texto simple a un botón con relleno
+                            ->icon('heroicon-m-sparkles')
+                            ->color('primary')
+                            ->button()
                             ->size('sm')
                             ->requiresConfirmation()
                             ->modalHeading('Consultar al Copiloto IA')
                             ->modalDescription('La IA analizará los síntomas y el vehículo para sugerirte los 3 puntos clave a revisar. Consumirá 1 crédito de tu taller.')
                             ->modalSubmitActionLabel('Consultar IA')
-
-                            // Bloqueamos el botón visualmente si ya gastó las 3 de esta orden
                             ->disabled(fn (\Filament\Forms\Get $get) => (int)$get('consultas_ia_realizadas') >= 3)
-
-                            ->action(function (\Filament\Forms\Get $get, \Filament\Forms\Set $set) {
+                            // Agregamos ?\App\Models\OrdenServicio $record para saber si la orden ya existe en BD
+                            ->action(function (\Filament\Forms\Get $get, \Filament\Forms\Set $set, ?\App\Models\OrdenServicio $record) {
                                 $vehiculoId = $get('vehiculo_id');
                                 $sintomas = $get('observaciones');
                                 $taller = auth()->user()->taller;
                                 $apiKey = $taller->openai_api_key;
                                 $consultasOrden = (int) $get('consultas_ia_realizadas');
 
-                                // --- VALIDACIONES DE LÍMITES SAAS ---
                                 if ($consultasOrden >= 3) {
-                                    \Filament\Notifications\Notification::make()->title('Límite alcanzado')->body('Solo puedes consultar a la IA 3 veces por cada vehículo.')->warning()->send();
+                                    \Filament\Notifications\Notification::make()->title('Límite alcanzado')->warning()->send();
                                     return;
                                 }
 
                                 if ($taller->consumo_ia_mes >= $taller->limite_ia_mensual) {
-                                    \Filament\Notifications\Notification::make()->title('Límite mensual agotado')->body('Has alcanzado el límite de uso de IA de tu plan este mes.')->danger()->send();
+                                    \Filament\Notifications\Notification::make()->title('Límite mensual agotado')->danger()->send();
                                     return;
                                 }
 
@@ -239,16 +236,14 @@ class OrdenServicioResource extends Resource
                                     return;
                                 }
                                 if (!$vehiculoId || empty($sintomas)) {
-                                    \Filament\Notifications\Notification::make()->title('Selecciona un vehículo y escribe los síntomas primero.')->warning()->send();
+                                    \Filament\Notifications\Notification::make()->title('Selecciona un vehículo y escribe los síntomas.')->warning()->send();
                                     return;
                                 }
 
-                                // --- CONSUMO DE LA API ---
                                 $vehiculo = \App\Models\Vehiculo::find($vehiculoId);
                                 $testigos = $get('testigos') ?? [];
                                 $testigosTexto = empty($testigos) ? 'Ninguno' : implode(', ', $testigos);
-
-                                $prompt = "Actúa como un ingeniero mecánico automotriz experto. Analiza el siguiente caso y sugiere las 3 piezas o sistemas más probables que causan la falla. Se directo y muy breve.\n\nVehículo: {$vehiculo->marca} {$vehiculo->modelo}\nTestigos encendidos: {$testigosTexto}\nSíntomas: {$sintomas}";
+                                $prompt = "Actúa como experto automotriz. Analiza y sugiere 3 fallas probables. Sé directo.\n\nVehículo: {$vehiculo->marca} {$vehiculo->modelo}\nTestigos: {$testigosTexto}\nSíntomas: {$sintomas}";
 
                                 try {
                                     $response = \Illuminate\Support\Facades\Http::withToken($apiKey)->timeout(15)->post('https://api.openai.com/v1/chat/completions', [
@@ -260,21 +255,26 @@ class OrdenServicioResource extends Resource
                                     ]);
 
                                     if ($response->successful()) {
-                                        // 1. Imprimimos el diagnóstico
+                                        // 1. Mostrar diagnóstico
                                         $set('diagnostico_ia', $response->json('choices.0.message.content'));
 
-                                        // 2. Sumamos 1 al límite de esta orden específica
+                                        // 2. Actualizar Livewire (cambia la interfaz visual al instante)
                                         $set('consultas_ia_realizadas', $consultasOrden + 1);
 
-                                        // 3. Le cobramos 1 crédito mensual al Taller en la Base de Datos
+                                        // 3. Cobrar el crédito mensual al Taller
                                         $taller->increment('consumo_ia_mes');
 
-                                        \Filament\Notifications\Notification::make()->title('¡Diagnóstico generado con éxito!')->success()->send();
+                                        // 4. SEGURIDAD ABSOLUTA: Si la orden ya estaba creada, la guardamos directo en BD para evitar la trampa de "F5"
+                                        if ($record) {
+                                            $record->update(['consultas_ia_realizadas' => $consultasOrden + 1]);
+                                        }
+
+                                        \Filament\Notifications\Notification::make()->title('¡Diagnóstico generado!')->success()->send();
                                     } else {
-                                        \Filament\Notifications\Notification::make()->title('Error en OpenAI: Verifica la API Key o tus créditos.')->danger()->send();
+                                        \Filament\Notifications\Notification::make()->title('Error en OpenAI')->danger()->send();
                                     }
                                 } catch (\Exception $e) {
-                                    \Filament\Notifications\Notification::make()->title('Hubo un problema de conexión con la IA.')->danger()->send();
+                                    \Filament\Notifications\Notification::make()->title('Hubo un problema de conexión.')->danger()->send();
                                 }
                             })
                     ),

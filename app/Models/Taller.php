@@ -26,7 +26,9 @@ class Taller extends Model
         'whatsapp_publico',
         'domicilio',
         'horario_atencion',
-        'openai_api_key'
+        'openai_api_key',
+        'limite_ia_mensual',
+        'consumo_ia_mes'
     ];
 
     // 1. Le decimos el nombre exacto de la tabla en español
