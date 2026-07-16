@@ -56,6 +56,11 @@
             .no-print { display: none; }
             body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
+        /* Zoom exclusivo para los autos laterales en la impresión */
+        .img-lateral {
+            transform: scale(1.1); /* Aumenta el tamaño en un 40% */
+            transform-origin: center;
+        }
     </style>
 </head>
 <body>
@@ -189,20 +194,23 @@
     <div class="section-title">Daños Preexistentes del Vehículo</div>
     <div class="car-grid">
         <div class="car-canvas">
-            <img src="{{ asset('img/auto-derecho.jpg') }}" class="car-base-img">
-            @if(isset($orden->danios_carroceria['lado_derecho']))<img src="{{ $orden->danios_carroceria['lado_derecho'] }}" class="car-drawing">@endif
+            <img src="{{ asset('img/auto-derecho.jpg') }}" class="car-base-img img-lateral">
+            @if(isset($orden->danios_carroceria['lado_derecho']))<img src="{{ $orden->danios_carroceria['lado_derecho'] }}" class="car-drawing img-lateral">@endif
         </div>
+
         <div class="car-canvas">
             <img src="{{ asset('img/auto-frente.jpg') }}" class="car-base-img">
             @if(isset($orden->danios_carroceria['frente']))<img src="{{ $orden->danios_carroceria['frente'] }}" class="car-drawing">@endif
         </div>
+
         <div class="car-canvas">
             <img src="{{ asset('img/auto-detras.jpg') }}" class="car-base-img">
             @if(isset($orden->danios_carroceria['detras']))<img src="{{ $orden->danios_carroceria['detras'] }}" class="car-drawing">@endif
         </div>
+
         <div class="car-canvas">
-            <img src="{{ asset('img/auto-izquierdo.jpg') }}" class="car-base-img">
-            @if(isset($orden->danios_carroceria['lado_izquierdo']))<img src="{{ $orden->danios_carroceria['lado_izquierdo'] }}" class="car-drawing">@endif
+            <img src="{{ asset('img/auto-izquierdo.jpg') }}" class="car-base-img img-lateral">
+            @if(isset($orden->danios_carroceria['lado_izquierdo']))<img src="{{ $orden->danios_carroceria['lado_izquierdo'] }}" class="car-drawing img-lateral">@endif
         </div>
     </div>
 </div>

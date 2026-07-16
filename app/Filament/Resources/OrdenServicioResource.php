@@ -33,12 +33,103 @@ class OrdenServicioResource extends Resource
                 // Buscador inteligente de autos
                 \Filament\Forms\Components\Select::make('vehiculo_id')
                     ->label('Vehículo a ingresar')
-                    ->relationship('vehiculo', 'id') // Usamos el ID internamente para que nunca falle
+                    ->relationship('vehiculo', 'id')
                     ->getOptionLabelFromRecordUsing(fn (\App\Models\Vehiculo $record) => trim("{$record->marca} {$record->modelo} " . ($record->placas ? "- Placas: {$record->placas}" : '')))
-                    ->searchable(['marca', 'modelo', 'placas']) // Permite al mecánico buscar por marca o placa
-                    ->preload() // ¡El secreto! Carga todos los autos en la lista en cuanto haces clic
+                    ->searchable(['marca', 'modelo', 'placas'])
+                    ->preload()
+                    ->live() // Hace que el formulario reaccione al elegir un auto
+                    ->afterStateUpdated(function (callable $set, $state) {
+                        $set('recordatorio_id', null); // Limpiamos el radar
+
+                        // Magia 1: Si se selecciona un auto, jalamos sus datos actuales a los campos de abajo
+                        if ($state) {
+                            $vehiculo = \App\Models\Vehiculo::find($state);
+                            $set('placas_vehiculo', $vehiculo?->placas);
+                            $set('kilometraje_vehiculo', $vehiculo?->kilometraje);
+                        } else {
+                            $set('placas_vehiculo', null);
+                            $set('kilometraje_vehiculo', null);
+                        }
+                    })
+                    // Magia 2: Al guardar la orden, interceptamos los campos y los guardamos en la tabla de vehículos
+                    ->saveRelationshipsUsing(function (\App\Models\OrdenServicio $record, \Filament\Forms\Get $get, $state) {
+                        if ($state) {
+                            \App\Models\Vehiculo::find($state)?->update([
+                                'placas' => $get('placas_vehiculo'),
+                                'kilometraje' => $get('kilometraje_vehiculo'),
+                            ]);
+                        }
+                    })
                     ->required()
                     ->columnSpanFull(),
+
+                // --- NUEVOS CAMPOS INTEGRADOS EN EL FORMULARIO (Actualizan al vehículo) ---
+                \Filament\Forms\Components\Grid::make(2)
+                    ->schema([
+                        \Filament\Forms\Components\TextInput::make('placas_vehiculo')
+                            ->label('Últimas Placas')
+                            ->placeholder('Ej. WUF-609-A')
+                            ->maxLength(20)
+                            ->dehydrated(false) // Magia 3: Evita que Filament intente guardarlo en ordenes_servicio
+                            ->afterStateHydrated(function (callable $set, ?\App\Models\OrdenServicio $record) {
+                                // Si estás editando una orden existente, carga los datos guardados
+                                if ($record && $record->vehiculo) {
+                                    $set('placas_vehiculo', $record->vehiculo->placas);
+                                }
+                            }),
+
+                        \Filament\Forms\Components\TextInput::make('kilometraje_vehiculo')
+                            ->label('Último Kilometraje')
+                            ->numeric()
+                            ->minValue(0)
+                            ->suffix('Km')
+                            ->dehydrated(false)
+                            ->afterStateHydrated(function (callable $set, ?\App\Models\OrdenServicio $record) {
+                                // Si estás editando una orden existente, carga los datos guardados
+                                if ($record && $record->vehiculo) {
+                                    $set('kilometraje_vehiculo', $record->vehiculo->kilometraje);
+                                }
+                            }),
+                    ])
+                    // Se ocultan para no ensuciar la pantalla si aún no han seleccionado un auto
+                    ->visible(fn (\Filament\Forms\Get $get) => filled($get('vehiculo_id'))),
+                // --------------------------------------------------------------------------
+
+                // --- EL RADAR DE OPORTUNIDADES (UPSELL) ---
+                \Filament\Forms\Components\Select::make('recordatorio_id')
+                    ->label('⚠️ Oportunidad de Venta detectada (Recordatorios Pendientes)')
+                    ->options(function (\Filament\Forms\Get $get) {
+                        $vehiculoId = $get('vehiculo_id');
+                        if (!$vehiculoId) return [];
+
+                        return \App\Models\Recordatorio::where('vehiculo_id', $vehiculoId)
+                            ->whereIn('estatus', ['Pendiente', 'Contactado', 'Cita Agendada'])
+                            ->get()
+                            ->mapWithKeys(fn ($r) => [$r->id => "📌 {$r->motivo} (Nivel: {$r->nivel_importancia})"]);
+                    })
+                    ->visible(function (\Filament\Forms\Get $get) {
+                        $vehiculoId = $get('vehiculo_id');
+                        if (!$vehiculoId) return false;
+
+                        return \App\Models\Recordatorio::where('vehiculo_id', $vehiculoId)
+                            ->whereIn('estatus', ['Pendiente', 'Contactado', 'Cita Agendada'])
+                            ->exists();
+                    })
+                    ->hint('Si el cliente realizará este servicio hoy, selecciónalo aquí para marcarlo como Completado.')
+                    ->hintColor('success')
+                    ->columnSpanFull()
+                    ->dehydrated(false) // No intenta guardar este campo falso en la tabla ordenes_servicio
+                    // MAGIA PURA: Si se seleccionó algo, lo completamos automáticamente al guardar la orden
+                    ->saveRelationshipsUsing(function (\App\Models\OrdenServicio $record, $state) {
+                        if ($state) {
+                            \App\Models\Recordatorio::find($state)?->update([
+                                'estatus' => 'Completado',
+                                'orden_servicio_id' => $record->id, // Ligamos de qué orden provino
+                                'observaciones_seguimiento' => 'El cliente realizó este servicio en la Orden de Servicio: ' . $record->folio,
+                            ]);
+                        }
+                    }),
+                // --- FIN DEL RADAR ---
 
                 \Filament\Forms\Components\TextInput::make('folio')
                     ->label('Folio')

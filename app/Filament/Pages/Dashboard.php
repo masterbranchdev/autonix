@@ -17,6 +17,8 @@ class Dashboard extends \Filament\Pages\Dashboard
     {
         return [
             \App\Filament\Widgets\WelcomeWidget::class,
+
+
         ];
     }
 
