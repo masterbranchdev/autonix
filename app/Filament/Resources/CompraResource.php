@@ -54,6 +54,11 @@ class CompraResource extends Resource
                             ->label('Nombre del Proveedor (Ej. AutoZone, Refaccionaria)')
                             ->required()
                             ->columnSpan(2),
+                        \Filament\Forms\Components\TextInput::make('numero_factura')
+                            ->label('No. Factura o Ticket')
+                            ->placeholder('Ej. F-98765')
+                            ->maxLength(50)
+                            ->columnSpan(1),
                         \Filament\Forms\Components\DatePicker::make('fecha')
                             ->label('Fecha de Compra')
                             ->default(now())
@@ -64,7 +69,7 @@ class CompraResource extends Resource
                             ->disabled()
                             ->dehydrated(false)
                             ->columnSpan(1),
-                    ])->columns(4),
+                    ])->columns(5),
 
                 \Filament\Forms\Components\Section::make('Artículos Comprados')
                     ->description('Al guardar, estas piezas se sumarán automáticamente a tu inventario.')
@@ -162,7 +167,9 @@ class CompraResource extends Resource
                 \Filament\Tables\Columns\IconColumn::make('aplica_iva')->label('Facturado')->boolean(),
                 \Filament\Tables\Columns\TextColumn::make('total')->money('MXN')->weight('bold')->color('danger'),
             ])
-            ->actions([\Filament\Tables\Actions\ViewAction::make()]);
+            ->actions([
+                \Filament\Tables\Actions\EditAction::make(),
+                \Filament\Tables\Actions\ViewAction::make()]);
     }
 
     public static function getPages(): array
