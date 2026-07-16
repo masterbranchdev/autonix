@@ -193,8 +193,132 @@ class OrdenServicioResource extends Resource
                 \Filament\Forms\Components\Textarea::make('trabajo_a_realizar')
                     ->columnSpanFull(),
 
+                \Filament\Forms\Components\Hidden::make('consultas_ia_realizadas')
+                    ->default(0),
+
                 \Filament\Forms\Components\Textarea::make('observaciones')
-                    ->columnSpanFull(),
+                    ->label('Síntomas o Fallas (Escribe aquí lo que reporta el cliente)')
+                    ->columnSpanFull()
+                    // EL NUEVO BOTÓN MODERNO
+                    ->hintAction(
+                        \Filament\Forms\Components\Actions\Action::make('consultar_ia')
+                            // Texto dinámico: Le avisa al usuario cuántas le quedan
+                            ->label(fn (\Filament\Forms\Get $get) => 'Sugerir Diagnóstico (' . (3 - (int)$get('consultas_ia_realizadas')) . ')')
+                            ->icon('heroicon-m-sparkles') // Ícono moderno
+                            ->color('primary') // Color a juego con la tarjeta
+                            ->button() // MAGIA: Lo convierte de un texto simple a un botón con relleno
+                            ->size('sm')
+                            ->requiresConfirmation()
+                            ->modalHeading('Consultar al Copiloto IA')
+                            ->modalDescription('La IA analizará los síntomas y el vehículo para sugerirte los 3 puntos clave a revisar. Consumirá 1 crédito de tu taller.')
+                            ->modalSubmitActionLabel('Consultar IA')
+
+                            // Bloqueamos el botón visualmente si ya gastó las 3 de esta orden
+                            ->disabled(fn (\Filament\Forms\Get $get) => (int)$get('consultas_ia_realizadas') >= 3)
+
+                            ->action(function (\Filament\Forms\Get $get, \Filament\Forms\Set $set) {
+                                $vehiculoId = $get('vehiculo_id');
+                                $sintomas = $get('observaciones');
+                                $taller = auth()->user()->taller;
+                                $apiKey = $taller->openai_api_key;
+                                $consultasOrden = (int) $get('consultas_ia_realizadas');
+
+                                // --- VALIDACIONES DE LÍMITES SAAS ---
+                                if ($consultasOrden >= 3) {
+                                    \Filament\Notifications\Notification::make()->title('Límite alcanzado')->body('Solo puedes consultar a la IA 3 veces por cada vehículo.')->warning()->send();
+                                    return;
+                                }
+
+                                if ($taller->consumo_ia_mes >= $taller->limite_ia_mensual) {
+                                    \Filament\Notifications\Notification::make()->title('Límite mensual agotado')->body('Has alcanzado el límite de uso de IA de tu plan este mes.')->danger()->send();
+                                    return;
+                                }
+
+                                if (!$apiKey) {
+                                    \Filament\Notifications\Notification::make()->title('Este taller no tiene activa la IA.')->danger()->send();
+                                    return;
+                                }
+                                if (!$vehiculoId || empty($sintomas)) {
+                                    \Filament\Notifications\Notification::make()->title('Selecciona un vehículo y escribe los síntomas primero.')->warning()->send();
+                                    return;
+                                }
+
+                                // --- CONSUMO DE LA API ---
+                                $vehiculo = \App\Models\Vehiculo::find($vehiculoId);
+                                $testigos = $get('testigos') ?? [];
+                                $testigosTexto = empty($testigos) ? 'Ninguno' : implode(', ', $testigos);
+
+                                $prompt = "Actúa como un ingeniero mecánico automotriz experto. Analiza el siguiente caso y sugiere las 3 piezas o sistemas más probables que causan la falla. Se directo y muy breve.\n\nVehículo: {$vehiculo->marca} {$vehiculo->modelo}\nTestigos encendidos: {$testigosTexto}\nSíntomas: {$sintomas}";
+
+                                try {
+                                    $response = \Illuminate\Support\Facades\Http::withToken($apiKey)->timeout(15)->post('https://api.openai.com/v1/chat/completions', [
+                                        'model' => 'gpt-4o-mini',
+                                        'messages' => [
+                                            ['role' => 'system', 'content' => 'Eres el Copiloto IA de Autonix, asistes a mecánicos.'],
+                                            ['role' => 'user', 'content' => $prompt]
+                                        ],
+                                    ]);
+
+                                    if ($response->successful()) {
+                                        // 1. Imprimimos el diagnóstico
+                                        $set('diagnostico_ia', $response->json('choices.0.message.content'));
+
+                                        // 2. Sumamos 1 al límite de esta orden específica
+                                        $set('consultas_ia_realizadas', $consultasOrden + 1);
+
+                                        // 3. Le cobramos 1 crédito mensual al Taller en la Base de Datos
+                                        $taller->increment('consumo_ia_mes');
+
+                                        \Filament\Notifications\Notification::make()->title('¡Diagnóstico generado con éxito!')->success()->send();
+                                    } else {
+                                        \Filament\Notifications\Notification::make()->title('Error en OpenAI: Verifica la API Key o tus créditos.')->danger()->send();
+                                    }
+                                } catch (\Exception $e) {
+                                    \Filament\Notifications\Notification::make()->title('Hubo un problema de conexión con la IA.')->danger()->send();
+                                }
+                            })
+                    ),
+
+                // 1. EL CAMPO INVISIBLE: Guarda la respuesta en la base de datos sin mostrar un input feo
+                \Filament\Forms\Components\Hidden::make('diagnostico_ia'),
+
+                // 2. LA TARJETA VISUAL PREMIUM (CORREGIDA)
+                \Filament\Forms\Components\Placeholder::make('diagnostico_visual')
+                    ->hiddenLabel()
+                    ->content(function (\Filament\Forms\Get $get) {
+                        $diagnostico = $get('diagnostico_ia');
+
+                        if (!$diagnostico) return null;
+
+                        // MAGIA 1: Convertimos el Markdown de OpenAI a HTML real (negritas, listas, etc.)
+                        $htmlContent = \Illuminate\Support\Str::markdown($diagnostico);
+
+                        // MAGIA 2: Usamos estilos CSS directos para garantizar que los colores e íconos siempre brillen
+                        return new \Illuminate\Support\HtmlString('
+                            <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0e7ff 100%); border: 1px solid #c7d2fe; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                                <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px;">
+
+                                    <div style="background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(99, 102, 241, 0.4);">
+                                        <svg xmlns="http://www.w3.org/2000/svg" style="width: 24px; height: 24px; color: white;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                          <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                        </svg>
+                                    </div>
+
+                                    <div>
+                                        <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700; color: #1e1b4b;">Diagnóstico Inteligente</h3>
+                                        <p style="margin: 0; font-size: 0.8rem; font-weight: 600; color: #4f46e5;">Copiloto IA de Autonix</p>
+                                    </div>
+
+                                </div>
+
+                                <div style="font-size: 0.95rem; color: #334155; line-height: 1.6;">
+                                    ' . $htmlContent . '
+                                </div>
+                            </div>
+                        ');
+                    })
+                    ->columnSpanFull()
+                    ->visible(fn (\Filament\Forms\Get $get) => filled($get('diagnostico_ia'))),
 
                 // TESTIGOS DEL TABLERO (Con Íconos y Botones interactivos)
                 \Filament\Forms\Components\ToggleButtons::make('testigos')

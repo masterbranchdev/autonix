@@ -73,7 +73,11 @@ return [
         ],
 
         'widgets' => [
-            'AccountWidget', 'FilamentInfoWidget',
+            'AccountWidget',
+            'FilamentInfoWidget',
+            // --- AGREGADOS DIRECTAMENTE A LA LISTA, SIN EL 'EXCLUDE' INTERNO ---
+            \App\Filament\Widgets\AutonixStatsWidget::class,
+            \App\Filament\Widgets\TalleresChartWidget::class,
         ],
 
         'resources' => [],

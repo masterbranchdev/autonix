@@ -10,10 +10,11 @@ class ListTallers extends ListRecords
 {
     protected static string $resource = TallerResource::class;
 
-    protected function getHeaderActions(): array
+    protected function getHeaderWidgets(): array
     {
         return [
-            Actions\CreateAction::make(),
+            \App\Filament\Widgets\AutonixStatsWidget::class,
+            \App\Filament\Widgets\TalleresChartWidget::class,
         ];
     }
 }

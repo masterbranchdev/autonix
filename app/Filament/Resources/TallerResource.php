@@ -125,6 +125,31 @@ class TallerResource extends Resource
                             ->label('Template ID: Recordatorio')
                             ->maxLength(255),
                     ])->columns(3),
+
+                // --- NUEVA SECCIÓN: INTELIGENCIA ARTIFICIAL ---
+                Forms\Components\Section::make('Copiloto Inteligencia Artificial')
+                    ->description('Asigna una API Key independiente para controlar los costos de OpenAI por taller.')
+                    ->collapsed() // Cerrada por defecto para mantener limpio el panel
+                    ->schema([
+                        Forms\Components\TextInput::make('openai_api_key')
+                            ->label('API Key de OpenAI')
+                            ->password() // Oculta la llave con asteriscos
+                            ->revealable()
+                            ->maxLength(255)
+                            ->columnSpanFull(),
+                    ]),
+                Forms\Components\TextInput::make('limite_ia_mensual')
+                    ->label('Límite de Consultas Mensuales')
+                    ->numeric()
+                    ->default(100)
+                    ->required(),
+
+                Forms\Components\TextInput::make('consumo_ia_mes')
+                    ->label('Consumo Actual del Mes')
+                    ->numeric()
+                    ->default(0)
+                    ->disabled() // Solo lectura para ti, el sistema lo actualiza solo
+                    ->helperText('Se reinicia a 0 cada mes.'),
             ]);
     }
 
