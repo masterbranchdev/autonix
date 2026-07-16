@@ -86,6 +86,13 @@ class PerfilTaller extends Page
                             ->label('Dirección Completa (Para facturas y PDFs)')
                             ->rows(3)
                             ->columnSpanFull(),
+
+
+                        TextInput::make('horario_atencion')
+                            ->label('Horarios de Atención (Ej. Lun-Vie 9am-6pm, Sáb 9am-2pm)')
+                            ->placeholder('Ej. Lunes a Viernes de 9:00 AM a 6:00 PM')
+                            ->columnSpanFull(),
+
                     ])->columns(4)
             ])
             ->statePath('data'); // Conecta los campos con el arreglo $data
@@ -117,6 +124,7 @@ class PerfilTaller extends Page
                 'telefono' => $data['telefono'] ?? null,
                 'whatsapp_publico' => $data['whatsapp_publico'] ?? null,
                 'domicilio' => $data['domicilio'] ?? null,
+                'horario_atencion' => $data['horario_atencion'] ?? $taller->horario_atencion,
             ]);
 
             Notification::make()

@@ -4,9 +4,8 @@ namespace App\Filament\Widgets;
 
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
-use Filament\Widgets\Concerns\InteractsWithPageFilters; // <-- TRAIT CRUCIAL PARA FILTROS
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use App\Models\Recordatorio;
-use Carbon\Carbon;
 
 class RecordatoriosStats extends BaseWidget
 {
@@ -15,58 +14,55 @@ class RecordatoriosStats extends BaseWidget
 
     protected int | string | array $columnSpan = 'full';
 
+    // MAGIA VISUAL: Forzamos a que el widget se divida en 4 columnas exactas
+    protected function getColumns(): int
+    {
+        return 4;
+    }
+
     protected function getStats(): array
     {
         $tallerId = auth()->user()->taller_id;
 
-        // Extraemos las fechas del filtro, o usamos el mes actual por defecto si está vacío
+        // Extraemos las fechas del filtro, o usamos el mes actual por defecto
         $fechaInicio = $this->filters['fecha_inicio'] ?? now()->startOfMonth()->format('Y-m-d');
         $fechaFin = $this->filters['fecha_fin'] ?? now()->endOfMonth()->format('Y-m-d');
 
-        // 1. OPORTUNIDADES DEL PERIODO (Dinero potencial sobre la mesa)
-        $oportunidades = Recordatorio::where('taller_id', $tallerId)
-            ->whereBetween('fecha_programada', [$fechaInicio, $fechaFin])
-            ->count();
+        // OPTIMIZACIÓN: Creamos una consulta base para el periodo y clonamos para contar cada estatus
+        // Esto hace que tu Dashboard cargue rapidísimo sin importar cuántos registros haya
+        $baseQuery = Recordatorio::where('taller_id', $tallerId)
+            ->whereBetween('fecha_programada', [$fechaInicio, $fechaFin]);
 
-        // 2. CARGA ASEGURADA (Citas amarradas para este periodo)
-        $citasAgendadas = Recordatorio::where('taller_id', $tallerId)
-            ->where('estatus', 'Cita Agendada')
-            ->whereBetween('fecha_programada', [$fechaInicio, $fechaFin])
-            ->count();
-
-        // 3. TASA DE RETENCIÓN (Éxito midiendo Completados vs Cancelados)
-        $completados = Recordatorio::where('taller_id', $tallerId)
-            ->where('estatus', 'Completado')
-            ->whereBetween('fecha_programada', [$fechaInicio, $fechaFin])
-            ->count();
-
-        $cancelados = Recordatorio::where('taller_id', $tallerId)
-            ->where('estatus', 'Cancelado')
-            ->whereBetween('fecha_programada', [$fechaInicio, $fechaFin])
-            ->count();
-
-        // Evitamos división por cero al calcular el porcentaje
-        $totalCerrados = $completados + $cancelados;
-        $tasaExito = $totalCerrados > 0
-            ? round(($completados / $totalCerrados) * 100) . '%'
-            : '0%';
+        $pendientes = (clone $baseQuery)->where('estatus', 'Pendiente')->count();
+        $contactados = (clone $baseQuery)->where('estatus', 'Contactado')->count();
+        $agendados = (clone $baseQuery)->where('estatus', 'Cita Agendada')->count();
+        $cancelados = (clone $baseQuery)->where('estatus', 'Cancelado')->count();
 
         return [
-            Stat::make('Oportunidades (Periodo)', $oportunidades)
-                ->description('Vehículos programados a regresar')
-                ->descriptionIcon('heroicon-m-calendar-days')
-                ->color('primary'),
+            // 1. EL PENDIENTE (Alerta: Tienes que trabajar)
+            Stat::make('Por Contactar', $pendientes)
+                ->description('Mensajes sin enviar')
+                ->descriptionIcon('heroicon-m-clock')
+                ->color('warning'), // Amarillo
 
-            Stat::make('Carga Asegurada', $citasAgendadas)
-                ->description('Citas agendadas confirmadas')
+            // 2. EL CONTACTADO (En progreso: Esperando respuesta)
+            Stat::make('Contactados', $contactados)
+                ->description('En espera de confirmación')
+                ->descriptionIcon('heroicon-m-chat-bubble-left-right')
+                ->color('info'), // Azul
+
+            // 3. EL ÉXITO (Victoria: Dinero asegurado)
+            Stat::make('Citas Agendadas', $agendados)
+                ->description('Retención exitosa')
                 ->descriptionIcon('heroicon-m-check-badge')
-                ->color('info')
-                ->chart([2, 5, 4, 7, 6, 9, 12]),
+                ->color('success') // Verde
+                ->chart([2, 5, 4, 7, 6, 9, 12]), // Gráfica para darle un toque premium
 
-            Stat::make('Tasa de Éxito', $tasaExito)
-                ->description("{$completados} Completados / {$cancelados} Cancelados")
-                ->descriptionIcon('heroicon-m-chart-pie')
-                ->color($completados >= $cancelados ? 'success' : 'danger'),
+            // 4. LA PÉRDIDA (Alerta: Ya lo hicieron en otro lado)
+            Stat::make('Cancelados', $cancelados)
+                ->description('Servicios perdidos')
+                ->descriptionIcon('heroicon-m-x-circle')
+                ->color('danger'), // Rojo
         ];
     }
 }

@@ -16,11 +16,11 @@ class CotizacionResource extends Resource
 {
     protected static ?string $model = Cotizacion::class;
 
-    protected static ?string $navigationGroup = 'Administración';
+    protected static ?string $navigationGroup = 'Operación del Taller';
     protected static ?string $modelLabel = 'Cotización';
     protected static ?string $pluralModelLabel = 'Cotizaciones';
     protected static ?string $navigationIcon = 'heroicon-o-document-currency-dollar';
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 2;
 
 
 
@@ -452,7 +452,7 @@ class CotizacionResource extends Resource
                         $nombreTaller = $taller ? $taller->nombre_comercial : 'Autonix';
 
                         // 4. Redactamos el mensaje persuasivo y claro
-                        $mensaje = "Hola *{$cliente->nombre}*, somos de *{$nombreTaller}* 👨‍🔧.\n\nTe compartimos el estatus actualizado y el presupuesto de tu *{$vehiculo->marca} {$vehiculo->modelo}*.\n\nPuedes revisarlo y aprobarlo directo en este enlace seguro:\n👉 {$link}\n\nQuedamos a tu disposición por cualquier duda.";
+                        $mensaje = "Hola *{$cliente->nombre}*, somos de *{$nombreTaller}* 👨‍🔧.\n\nTe compartimos el estatus actualizado y el presupuesto de tu *{$vehiculo->marca} {$vehiculo->modelo}*.\n\nPuedes revisarlo directo en este enlace seguro:\n👉 {$link}\n\nQuedamos a tu disposición por cualquier duda.";
 
                         // 5. Retornamos la URL oficial de la API de WhatsApp
                         return 'https://api.whatsapp.com/send?phone=' . $telefono . '&text=' . urlencode($mensaje);

@@ -108,7 +108,7 @@
 
     @if($mostrarDocumentos)
     <div class="bg-white rounded-3xl shadow-sm p-5 border border-gray-100">
-        <h3 class="text-sm font-black uppercase text-slate-700 tracking-wider mb-3">Documentos Oficiales</h3>
+        <h3 class="text-sm font-black uppercase text-slate-700 tracking-wider mb-3">Documentos</h3>
         <div class="grid grid-cols-2 gap-3">
             <a href="{{ route('portal.orden.pdf', $orden->token_url) }}" target="_blank" class="flex flex-col items-center justify-center gap-1 bg-slate-50 border border-slate-200 hover:bg-slate-100 hover:border-blue-300 text-slate-700 hover:text-blue-700 py-3 px-2 rounded-2xl text-xs font-bold transition-all">
                 <span class="text-xl">📄</span>
@@ -126,7 +126,7 @@
         <div class="bg-white rounded-3xl shadow-sm p-1 border border-blue-100">
             <div class="bg-blue-50 rounded-[22px] p-5">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-sm font-black uppercase text-blue-900 tracking-wider">Presupuestos Actuales</h3>
+                    <h3 class="text-sm font-black uppercase text-blue-900 tracking-wider">Cotizaciones Actuales</h3>
                     <span class="bg-blue-200 text-blue-800 text-xs font-bold px-2 py-1 rounded-full">{{ $orden->cotizaciones->count() }}</span>
                 </div>
 

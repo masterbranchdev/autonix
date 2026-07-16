@@ -364,7 +364,7 @@ class OrdenServicioResource extends Resource
             ->actions([
                 \Filament\Tables\Actions\EditAction::make(),
 
-                // --- NUEVO: BOTÓN DE CAMBIO RÁPIDO DE ESTATUS ---
+                // --- BOTÓN DE CAMBIO RÁPIDO DE ESTATUS (CON WHATSAPP INTELIGENTE) ---
                 \Filament\Tables\Actions\Action::make('cambiar_estatus')
                     ->label('Estatus')
                     ->icon('heroicon-o-arrow-path')
@@ -387,14 +387,59 @@ class OrdenServicioResource extends Resource
                             ->required(),
                     ])
                     ->action(function (\App\Models\OrdenServicio $record, array $data): void {
+                        // 1. Guardamos el nuevo estatus en la BD
                         $record->update(['estatus' => $data['estatus']]);
 
-                        \Filament\Notifications\Notification::make()
+                        // 2. Preparamos la notificación base
+                        $notificacion = \Filament\Notifications\Notification::make()
                             ->title('Estatus actualizado a: ' . $data['estatus'])
-                            ->success()
-                            ->send();
+                            ->success();
+
+                        // 3. MAGIA: Si el estatus es 'Listo', le inyectamos la sugerencia de WhatsApp
+                        if ($data['estatus'] === 'Listo') {
+                            $vehiculo = $record->vehiculo;
+                            $cliente = $vehiculo->cliente;
+                            $taller = $record->taller;
+
+                            // Formateo del teléfono a 10 dígitos con código de país
+                            $telefono = preg_replace('/[^0-9]/', '', $cliente->telefono);
+                            if (strlen($telefono) == 10) { $telefono = '52' . $telefono; }
+
+                            $horario = $taller->horario_atencion ?? '-';
+
+                            $nombre = trim($cliente->nombre);
+                            $auto = "{$vehiculo->marca} {$vehiculo->modelo}";
+                            $nombreTaller = $taller ? $taller->nombre_comercial : 'nuestro taller';
+                            $link = route('portal.status', $record->token_url);
+
+                            // La plantilla persuasiva
+                            $mensaje = "¡Hola *{$nombre}*, tenemos excelentes noticias! 👨‍🔧\n\nTu *{$auto}* ya se encuentra *LISTO* para entrega.\n\nPuedes revisar los detalles finales de tu servicio en tu Expediente Digital aquí:\n👉 {$link}\n\n*Recuerda que nuestro horario de atención es: {$horario}.* ¡Te esperamos!";
+
+                            $urlWhatsapp = 'https://api.whatsapp.com/send?phone=' . $telefono . '&text=' . urlencode($mensaje);
+
+                            $notificacion
+                                ->body('El auto está listo. ¿Deseas avisarle al cliente para que pase por él?')
+                                ->persistent() // Evita que la notificación se cierre sola a los 3 segundos
+                                ->actions([
+                                    \Filament\Notifications\Actions\Action::make('notificar_whatsapp')
+                                        ->label('📲 Avisar por WhatsApp')
+                                        ->button()
+                                        ->color('success')
+                                        ->url($urlWhatsapp)
+                                        ->openUrlInNewTab()
+                                        ->close(), // Cierra la notificación después de dar clic
+
+                                    \Filament\Notifications\Actions\Action::make('cancelar')
+                                        ->label('Más tarde')
+                                        ->color('gray')
+                                        ->close(),
+                                ]);
+                        }
+
+                        // 4. Disparamos la notificación final a la pantalla
+                        $notificacion->send();
                     }),
-                // --- FIN DEL NUEVO BOTÓN ---
+                // --- FIN DEL BOTÓN ---
 
 
                 // Botón de imprimir

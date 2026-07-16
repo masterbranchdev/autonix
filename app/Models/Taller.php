@@ -25,6 +25,7 @@ class Taller extends Model
         'telefono',
         'whatsapp_publico',
         'domicilio',
+        'horario_atencion',
     ];
 
     // 1. Le decimos el nombre exacto de la tabla en español

@@ -16,11 +16,11 @@ class RecordatorioResource extends Resource
 {
     protected static ?string $model = Recordatorio::class;
 
-    protected static ?string $navigationGroup = 'Retención y CRM';
+    protected static ?string $navigationGroup = 'Operación del Taller';
     protected static ?string $modelLabel = 'Próximo Servicio';
     protected static ?string $pluralModelLabel = 'Próximos Servicios';
     protected static ?string $navigationIcon = 'heroicon-o-bell-alert';
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 4;
 
     public static function form(Form $form): Form
     {
@@ -179,6 +179,9 @@ class RecordatorioResource extends Resource
                 // -------------------------------------------------------
             ])
             ->actions([
+
+                \Filament\Tables\Actions\EditAction::make(),
+
                 // 1. EL BOTÓN PARA GESTIONAR EL ESTATUS (Se mantiene igual)
                 \Filament\Tables\Actions\Action::make('gestionar')
                     ->label('Gestionar')

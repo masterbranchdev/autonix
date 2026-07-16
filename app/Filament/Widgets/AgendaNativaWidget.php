@@ -40,7 +40,7 @@ class AgendaNativaWidget extends BaseWidget
             ->columns([
                 Tables\Columns\TextColumn::make('fecha_hora_cita')
                     ->label('Hora')
-                    ->time('h:i A') // Muestra solo "10:30 AM"
+                    ->time('h:i A')
                     ->badge()
                     ->color('primary')
                     ->weight('bold'),
@@ -48,7 +48,12 @@ class AgendaNativaWidget extends BaseWidget
                 Tables\Columns\TextColumn::make('cliente.nombre')
                     ->label('Cliente')
                     ->searchable()
-                    ->weight('bold'),
+                    ->weight('bold')
+                    // Lo que dijo el cliente se anida aquí abajo
+                    ->description(fn (Recordatorio $record) => $record->observaciones_seguimiento)
+                    // El ícono nativo de Filament se aplica a la columna
+                    ->icon(fn (Recordatorio $record) => $record->observaciones_seguimiento ? 'heroicon-m-chat-bubble-oval-left-ellipsis' : null)
+                    ->wrap(),
 
                 Tables\Columns\TextColumn::make('vehiculo.placas')
                     ->label('Vehículo')
@@ -57,8 +62,11 @@ class AgendaNativaWidget extends BaseWidget
 
                 Tables\Columns\TextColumn::make('motivo')
                     ->label('Servicio Programado')
-                    ->limit(40)
-                    ->wrap(),
+                    ->wrap()
+                    // Las notas internas del taller se anidan aquí abajo
+                    ->description(fn (Recordatorio $record) => $record->notas_internas)
+                    // El ícono nativo de Filament se aplica a la columna
+                    ->icon(fn (Recordatorio $record) => $record->notas_internas ? 'heroicon-m-clipboard-document-list' : null),
             ])
             ->actions([
                 // Botón de WhatsApp especializado en confirmación de asistencia
