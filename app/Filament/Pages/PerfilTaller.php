@@ -15,10 +15,12 @@ use Filament\Pages\Page;
 class PerfilTaller extends Page
 {
     protected static ?string $navigationIcon = 'heroicon-o-building-storefront';
-    protected static ?string $navigationGroup = 'Configuraciones';
+//    protected static ?string $navigationGroup = 'Configuraciones';
     protected static ?string $navigationLabel = 'Perfil del Taller';
     protected static ?string $title = 'Identidad y Contacto';
     protected static ?string $slug = 'perfil-taller';
+
+    protected static bool $shouldRegisterNavigation = false;
 
     protected static string $view = 'filament.pages.perfil-taller';
 

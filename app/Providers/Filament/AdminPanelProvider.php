@@ -17,6 +17,8 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Filament\Navigation\MenuItem;
+use App\Filament\Pages\PerfilTaller;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -38,6 +40,14 @@ class AdminPanelProvider extends PanelProvider
                 'Configuraciones',
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
+            ->userMenuItems([
+                MenuItem::make()
+                    ->label('Perfil del Taller')
+                    ->url(fn (): string => PerfilTaller::getUrl())
+                    ->icon('heroicon-o-building-storefront')
+                    // Lo hacemos visible solo si el usuario tiene el rol adecuado, coincidiendo con tu candado actual
+                    ->visible(fn (): bool => auth()->user()->hasRole('super_admin')),
+            ])
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
                 \App\Filament\Pages\Dashboard::class,

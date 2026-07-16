@@ -43,6 +43,8 @@
     if(str_contains($estatusActual, 'calidad') || str_contains($estatusActual, 'final')) $pasoActual = 5;
     if(str_contains($estatusActual, 'terminado') || str_contains($estatusActual, 'listo')) $pasoActual = 6;
     if(str_contains($estatusActual, 'entregado')) $pasoActual = 7; // <--- NUEVA LÓGICA
+
+    $mostrarDocumentos = $pasoActual < 7;
 @endphp
 
 <header class="bg-slate-900 text-white p-6 shadow-md rounded-b-3xl">
@@ -104,12 +106,13 @@
         </div>
     </div>
 
+    @if($mostrarDocumentos)
     <div class="bg-white rounded-3xl shadow-sm p-5 border border-gray-100">
         <h3 class="text-sm font-black uppercase text-slate-700 tracking-wider mb-3">Documentos Oficiales</h3>
         <div class="grid grid-cols-2 gap-3">
             <a href="{{ route('portal.orden.pdf', $orden->token_url) }}" target="_blank" class="flex flex-col items-center justify-center gap-1 bg-slate-50 border border-slate-200 hover:bg-slate-100 hover:border-blue-300 text-slate-700 hover:text-blue-700 py-3 px-2 rounded-2xl text-xs font-bold transition-all">
                 <span class="text-xl">📄</span>
-                Orden de Ingreso
+                Orden de Servicio
             </a>
             <a href="{{ route('portal.inspeccion.pdf', $orden->token_url) }}" target="_blank" class="flex flex-col items-center justify-center gap-1 bg-slate-50 border border-slate-200 hover:bg-slate-100 hover:border-blue-300 text-slate-700 hover:text-blue-700 py-3 px-2 rounded-2xl text-xs font-bold transition-all">
                 <span class="text-xl">📋</span>
@@ -117,8 +120,9 @@
             </a>
         </div>
     </div>
+    @endif
 
-    @if($orden->cotizaciones->count() > 0)
+    @if($mostrarDocumentos && $orden->cotizaciones->count() > 0)
         <div class="bg-white rounded-3xl shadow-sm p-1 border border-blue-100">
             <div class="bg-blue-50 rounded-[22px] p-5">
                 <div class="flex justify-between items-center mb-4">
@@ -183,9 +187,6 @@
                             @endif
 
                             <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-200">
-                                <a href="{{ route('portal.orden.pdf', $ordenPasada->token_url) }}" target="_blank" class="flex items-center gap-1 text-[10px] bg-white border border-slate-300 hover:bg-slate-100 hover:border-blue-300 hover:text-blue-600 text-slate-600 py-1 px-2 rounded-lg font-bold transition-colors">
-                                    📄 Orden
-                                </a>
 
                                 @if($ordenPasada->inspecciones->count() > 0)
                                     <a href="{{ route('portal.inspeccion.pdf', $ordenPasada->token_url) }}" target="_blank" class="flex items-center gap-1 text-[10px] bg-white border border-slate-300 hover:bg-slate-100 hover:border-blue-300 hover:text-blue-600 text-slate-600 py-1 px-2 rounded-lg font-bold transition-colors">
@@ -193,11 +194,6 @@
                                     </a>
                                 @endif
 
-                                @foreach($ordenPasada->cotizaciones->where('estatus', 'Aprobada') as $cotizacionPasada)
-                                    <a href="{{ route('portal.cotizacion.pdf', ['token' => $ordenPasada->token_url, 'id' => $cotizacionPasada->id]) }}" target="_blank" class="flex items-center gap-1 text-[10px] bg-white border border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 text-emerald-600 py-1 px-2 rounded-lg font-bold transition-colors">
-                                        📥 Presupuesto {{ $cotizacionPasada->folio }}
-                                    </a>
-                                @endforeach
                             </div>
 
                         </div>

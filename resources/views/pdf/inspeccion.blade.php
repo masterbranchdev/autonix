@@ -20,14 +20,17 @@
         .main-layout { display: flex; gap: 10px; }
         .col-left { width: 62%; } .col-right { width: 38%; }
 
+        /* TABLA DE PUNTOS (Reducimos padding para que quepan 19 renglones) */
         table { width: 100%; border-collapse: collapse; font-size: 8px; }
         td { border: 1px solid #ccc; padding: 2px 4px; vertical-align: middle; }
         .td-semaforo { width: 12px; text-align: center; }
         .box-s { width: 10px; height: 10px; border: 1px solid #000; margin: 0 auto; }
         .box-verde { background-color: #16a34a; } .box-amarillo { background-color: #eab308; } .box-rojo { background-color: #dc2626; }
 
+        /* TABLA ADICIONALES */
         .table-add td { padding: 3px; }
 
+        /* DIAGRAMAS (LLANTAS Y BALATAS) */
         .diagram-box { border: 1px solid #000; padding: 4px; margin-bottom: 8px; text-align: center; }
         .diagram-title { font-weight: bold; background: #333; color: #fff; padding: 3px; font-size: 8px; margin-top: -4px; margin-left: -4px; margin-right: -4px; margin-bottom: 5px; }
         .llantas-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -35,15 +38,11 @@
         .corner-lbl { font-weight: bold; font-size: 8px; border-bottom: 1px solid #000; margin-bottom: 2px; }
         .status-bar { height: 4px; width: 100%; margin-top: 2px; }
 
-        .firmas-container { margin-top: 10px; page-break-inside: avoid; }
-        .firmas-grid { display: flex; justify-content: space-around; }
-        .firma-box { width: 40%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; min-height: 60px; text-align: center; }
-        .firma-img { max-height: 40px; max-width: 100%; object-fit: contain; }
-        .firma-line { width: 100%; border-top: 1px solid #374151; padding-top: 2px; font-weight: bold; font-size: 9px; }
-
-
         @media print { .no-print { display: none; } body { -webkit-print-color-adjust: exact; } }
+        /* PIE DE PÁGINA */
         .footer-taller { text-align: center; margin-top: 10px; font-size: 8px; color: #4b5563; border-top: 1px solid #e5e7eb; padding-top: 5px; }
+
+
     </style>
 </head>
 <body>
@@ -51,44 +50,26 @@
 <button class="no-print" onclick="window.print()" style="margin-bottom: 10px; padding: 8px 15px; background: #000; color: #fff; border: none; cursor: pointer;">🖨️ Imprimir Reporte</button>
 
 @php
-    $taller = $inspeccion->ordenServicio->taller;
-    $vehiculo = $inspeccion->ordenServicio->vehiculo;
-    $asesor = auth()->check() ? auth()->user()->name : 'Asesor de Servicio';
-
-    // 1. MAGIA BASE 64 PARA EL LOGO
+    $taller = $inspeccion->taller ?? auth()->user()->taller;
     $logoBase64 = null;
     if($taller && $taller->logo_path) {
         try {
-            $imagen = \Illuminate\Support\Facades\Storage::disk('s3')->get($taller->logo_path);
+            $img = \Illuminate\Support\Facades\Storage::disk('s3')->get($taller->logo_path);
             $mime = \Illuminate\Support\Facades\Storage::disk('s3')->mimeType($taller->logo_path);
-            $logoBase64 = 'data:' . $mime . ';base64,' . base64_encode($imagen);
+            $logoBase64 = 'data:' . $mime . ';base64,' . base64_encode($img);
         } catch (\Exception $e) {}
-    }
-
-    // 2. MAGIA BASE 64 PARA LA FIRMA
-    $firmaBase64 = null;
-    if($inspeccion->firma) {
-        if(str_starts_with($inspeccion->firma, 'data:image')) {
-            // A veces el plugin ya la guarda en base64 por defecto
-            $firmaBase64 = $inspeccion->firma;
-        } else {
-            try {
-                // Buscamos si la firma se guardó en S3 o en la carpeta local (public)
-                $disk = \Illuminate\Support\Facades\Storage::disk('public')->exists($inspeccion->firma) ? 'public' : 's3';
-                $imgFirma = \Illuminate\Support\Facades\Storage::disk($disk)->get($inspeccion->firma);
-                $mimeFirma = \Illuminate\Support\Facades\Storage::disk($disk)->mimeType($inspeccion->firma);
-                $firmaBase64 = 'data:' . $mimeFirma . ';base64,' . base64_encode($imgFirma);
-            } catch (\Exception $e) {}
-        }
     }
 @endphp
 
+    <!-- HEADER -->
 <div class="header-grid">
     <div class="logo-box">
         @if($logoBase64)
             <img src="{{ $logoBase64 }}" style="max-height: 35px;">
+            <br>
+            <h2>{{ auth()->user()->taller->nombre_comercial }}</h2>
         @else
-            <h2>{{ $taller->nombre_comercial ?? 'Taller' }}</h2>
+            <h2>{{ auth()->user()->taller->nombre_comercial }}</h2>
         @endif
     </div>
     <div class="title-box">
@@ -101,13 +82,15 @@
     </div>
 </div>
 
+@php $vehiculo = $inspeccion->ordenServicio->vehiculo; @endphp
 <div class="info-grid">
     <div><strong>Cliente:</strong> {{ $vehiculo->cliente->nombre }}</div>
     <div><strong>Vehículo:</strong> {{ $vehiculo->marca }} {{ $vehiculo->modelo }} ({{ $vehiculo->anio }})</div>
     <div><strong>Placas:</strong> {{ $vehiculo->placas }}</div>
-    <div><strong>VIN:</strong> {{ $vehiculo->numero_serie ?? 'N/A' }} &nbsp;|&nbsp; <strong>Km:</strong> {{ $vehiculo->kilometraje }}</div>
+    <div><strong>VIN:</strong> {{ $vehiculo->vin ?? 'N/A' }} &nbsp;|&nbsp; <strong>Km:</strong> {{ $vehiculo->kilometraje }}</div>
 </div>
 
+<!-- LEYENDA COLORES -->
 <div class="legend-bar">
     <div class="legend-item bg-verde">RESULTADO DE LA REVISIÓN O.K.</div>
     <div class="legend-item bg-amarillo">REQUIERE ATENCIÓN EN EL FUTURO</div>
@@ -115,6 +98,7 @@
 </div>
 
 <div class="main-layout">
+    <!-- COLUMNA IZQUIERDA: LOS 19 PUNTOS -->
     <div class="col-left">
         <table>
             <tr style="background:#000; color:#fff; text-align:center; font-weight:bold;">
@@ -126,6 +110,7 @@
                 $add = $inspeccion->adicionales ?? [];
                 $fugasEspecificar = isset($add['fugas_especificar']) && $add['fugas_especificar'] != '' ? $add['fugas_especificar'] : '__________________';
 
+                // LOS 19 PUNTOS EXACTOS
                 $puntos = [
                     'lavaparabrisas' => 'Fluido lavaparabrisas',
                     'transmision' => 'Nivel y condición del fluido de transmisión automática',
@@ -161,6 +146,7 @@
             @endforeach
         </table>
 
+        <!-- SERVICIOS ADICIONALES -->
         <div style="margin-top:8px;">
             <table class="table-add" style="width: 100%;">
                 <tr style="background:#333; color:#fff; font-weight:bold;"><td colspan="2">Servicios Adicionales Recomendados</td></tr>
@@ -182,7 +168,10 @@
         </div>
     </div>
 
+    <!-- COLUMNA DERECHA: DIAGRAMAS -->
     <div class="col-right">
+
+        <!-- LLANTAS -->
         <div class="diagram-box">
             <div class="diagram-title">Ajustar la presión de las llantas a recomendación</div>
             <div class="llantas-grid">
@@ -197,6 +186,7 @@
             </div>
         </div>
 
+        <!-- BALATAS -->
         <div class="diagram-box">
             <div class="diagram-title">Mida las balatas delanteras y traseras</div>
             <div class="llantas-grid">
@@ -211,6 +201,7 @@
             </div>
         </div>
 
+        <!-- BATERÍA -->
         <div class="diagram-box">
             <div class="diagram-title">Revisar estado del acumulador</div>
             @php $bat = $inspeccion->bateria ?? ['estado'=>'', 'amperaje'=>'']; @endphp
@@ -224,39 +215,38 @@
     </div>
 </div>
 
-<div class="firmas-container">
-    <div class="firmas-grid">
-        <div class="firma-box">
-            <div class="firma-line">
-                TALLER / ASESOR DE SERVICIO<br>
-                <span style="font-weight: normal; font-size: 10px; color: #4b5563;">{{ $asesor }}</span>
+<div style="margin-top: 15px; page-break-inside: avoid;">
+    <div style="display: flex; justify-content: space-around; text-align: center;">
+        <div style="width: 40%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; min-height: 50px;">
+            <div style="width: 100%; border-top: 1px solid #333; padding-top: 4px; font-weight: bold; font-size: 9px;">
+                ASESOR DE SERVICIO<br>
+                <span style="font-weight: normal; color: #4b5563;">{{ auth()->user()->name ?? 'Asesor' }}</span>
             </div>
         </div>
-        <div class="firma-box">
-            @if($firmaBase64)
-                <img src="{{ $firmaBase64 }}" class="firma-img" alt="Firma">
+
+        <div style="width: 40%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; min-height: 50px;">
+            @if($inspeccion->firma)
+                <img src="{{ $inspeccion->firma }}" style="max-height: 40px; max-width: 100%; object-fit: contain; margin-bottom: 2px;">
             @endif
-            <div class="firma-line">
-                FIRMA DE CONFORMIDAD<br>
-                <span style="font-weight: normal; font-size: 10px; color: #4b5563;">
-                        {{ $orden->persona_que_entrega ?: ($orden->vehiculo->cliente->nombre ?? 'Firma del Cliente') }}
-                    </span>
+            <div style="width: 100%; border-top: 1px solid #333; padding-top: 4px; font-weight: bold; font-size: 9px;">
+                FIRMA DEL CLIENTE<br>
+                <span style="font-weight: normal; color: #4b5563;">{{ $inspeccion->ordenServicio->vehiculo->cliente->nombre }}</span>
             </div>
         </div>
     </div>
 </div>
 
-@if($taller)
+@if($inspeccion->taller)
     <div class="footer-taller" style="text-align: center; margin-top: 15px; font-size: 8px; color: #4b5563; border-top: 1px solid #e5e7eb; padding-top: 5px;">
-        @if($logoBase64)
+        @if($inspeccion->taller->logo_path)
             <img src="{{ $logoBase64 }}" style="max-height: 25px; margin-bottom: 3px;"><br>
         @endif
-        <div style="font-weight: bold; font-size: 9px; margin-bottom: 2px;">{{ $taller->nombre_comercial }}</div>
-        <div style="margin-bottom: 2px;">{{ $taller->domicilio }}</div>
+        <div style="font-weight: bold; font-size: 9px; margin-bottom: 2px;">{{ $inspeccion->taller->nombre_comercial }}</div>
+        <div style="margin-bottom: 2px;">{{ $inspeccion->taller->domicilio }}</div>
         <div>
-            Tel: {{ $taller->telefono ?? 'N/A' }}
+            Tel: {{ $inspeccion->taller->telefono ?? 'N/A' }}
             &nbsp;&nbsp;|&nbsp;&nbsp;
-            WhatsApp: {{ $taller->whatsapp_publico ?? 'N/A' }}
+            WhatsApp: {{ $inspeccion->taller->whatsapp_publico ?? 'N/A' }}
         </div>
     </div>
 @endif

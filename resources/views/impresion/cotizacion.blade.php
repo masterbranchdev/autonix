@@ -89,7 +89,7 @@
         <div style="font-size: 12px; font-weight: bold; margin-bottom: 8px; border-bottom: 1px solid #ccc; padding-bottom: 4px;">Datos del Vehículo:</div>
         <div class="info-row"><span class="info-label">Unidad:</span> {{ $vehiculo->marca }} {{ $vehiculo->modelo }} ({{ $vehiculo->anio }})</div>
         <div class="info-row"><span class="info-label">Placas:</span> {{ $vehiculo->placas }} &nbsp;|&nbsp; <span class="info-label">Color:</span> {{ $vehiculo->color }}</div>
-        <div class="info-row"><span class="info-label">VIN:</span> {{ $vehiculo->numero_serie ?? 'N/A' }}</div>
+        <div class="info-row"><span class="info-label">VIN:</span> {{ $vehiculo->vin ?? 'N/A' }}</div>
     </div>
 </div>
 

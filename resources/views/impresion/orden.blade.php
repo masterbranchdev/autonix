@@ -108,7 +108,7 @@
             <div class="info-row"><div class="info-label">Color:</div><div class="info-value">{{ $orden->vehiculo->color }}</div></div>
             <div class="info-row"><div class="info-label">Placas:</div><div class="info-value">{{ $orden->vehiculo->placas }}</div></div>
             <div class="info-row"><div class="info-label">Km:</div><div class="info-value">{{ $orden->vehiculo->kilometraje }}</div></div>
-            <div class="info-row"><div class="info-label">VIN:</div><div class="info-value">{{ $orden->vehiculo->numero_serie ?? 'N/A' }}</div></div>
+            <div class="info-row"><div class="info-label">VIN:</div><div class="info-value">{{ $orden->vehiculo->vin ?? 'N/A' }}</div></div>
             <div class="info-row"><div class="info-label">Tarjeta Circ.:</div><div class="info-value">{{ $orden->vehiculo->tarjeta_circulacion ?? 'N/A' }}</div></div>
             <div class="info-row"><div class="info-label">Póliza:</div><div class="info-value">{{ $orden->vehiculo->poliza_seguro ?? 'N/A' }}</div></div>
         </div>

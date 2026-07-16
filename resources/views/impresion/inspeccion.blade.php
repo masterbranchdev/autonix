@@ -87,7 +87,7 @@
     <div><strong>Cliente:</strong> {{ $vehiculo->cliente->nombre }}</div>
     <div><strong>Vehículo:</strong> {{ $vehiculo->marca }} {{ $vehiculo->modelo }} ({{ $vehiculo->anio }})</div>
     <div><strong>Placas:</strong> {{ $vehiculo->placas }}</div>
-    <div><strong>VIN:</strong> {{ $vehiculo->numero_serie ?? 'N/A' }} &nbsp;|&nbsp; <strong>Km:</strong> {{ $vehiculo->kilometraje }}</div>
+    <div><strong>VIN:</strong> {{ $vehiculo->vin ?? 'N/A' }} &nbsp;|&nbsp; <strong>Km:</strong> {{ $vehiculo->kilometraje }}</div>
 </div>
 
 <!-- LEYENDA COLORES -->
