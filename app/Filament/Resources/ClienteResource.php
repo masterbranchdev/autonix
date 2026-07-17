@@ -42,6 +42,41 @@ class ClienteResource extends Resource
                 \Filament\Forms\Components\TextInput::make('correo')
                     ->email()
                     ->maxLength(255),
+
+                // --- NUEVA SECCIÓN: FACTURACIÓN CFDI 4.0 ---
+                \Filament\Forms\Components\Section::make('Datos Fiscales (CFDI 4.0)')
+                    ->description('Requeridos solo si el cliente solicitará factura.')
+                    ->collapsed() // La dejamos cerrada por defecto para no hacer largo el formulario
+                    ->icon('heroicon-o-document-text')
+                    ->schema([
+                        \Filament\Forms\Components\TextInput::make('rfc')
+                            ->label('RFC')
+                            ->maxLength(13)
+                            ->placeholder('Ej. XAXX010101000')
+                            ->extraInputAttributes(['style' => 'text-transform: uppercase;']),
+
+                        \Filament\Forms\Components\TextInput::make('razon_social')
+                            ->label('Razón Social / Nombre Completo')
+                            ->helperText('Tal como aparece en su Constancia de Situación Fiscal (Sin SA de CV)'),
+
+                        \Filament\Forms\Components\TextInput::make('codigo_postal')
+                            ->label('Código Postal')
+                            ->maxLength(5)
+                            ->numeric(),
+
+                        \Filament\Forms\Components\Select::make('regimen_fiscal')
+                            ->label('Régimen Fiscal')
+                            ->searchable()
+                            ->options([
+                                '601' => '601 - General de Ley Personas Morales',
+                                '603' => '603 - Personas Morales con Fines no Lucrativos',
+                                '605' => '605 - Sueldos y Salarios e Ingresos Asimilados',
+                                '606' => '606 - Arrendamiento',
+                                '612' => '612 - Personas Físicas con Actividades Empresariales y Profesionales',
+                                '626' => '626 - Régimen Simplificado de Confianza (RESICO)',
+                            ]),
+                    ])->columns(2),
+
             ]);
     }
 

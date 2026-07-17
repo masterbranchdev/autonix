@@ -150,6 +150,30 @@ class TallerResource extends Resource
                     ->default(0)
                     ->disabled() // Solo lectura para ti, el sistema lo actualiza solo
                     ->helperText('Se reinicia a 0 cada mes.'),
+
+                // --- NUEVA SECCIÓN: CONFIGURACIÓN DE FACTURAPI ---
+                \Filament\Forms\Components\Section::make('Configuración de Facturación (CFDI 4.0)')
+                    ->description('Ingresa tus credenciales de Facturapi para habilitar el timbrado de facturas desde Autonix.')
+                    ->icon('heroicon-o-building-office')
+                    ->schema([
+                        \Filament\Forms\Components\TextInput::make('facturapi_key_test')
+                            ->label('API Key (Modo Pruebas / Test)')
+                            ->password() // Ocultamos la llave por seguridad
+                            ->revealable()
+                            ->columnSpan(1),
+
+                        \Filament\Forms\Components\TextInput::make('facturapi_key_live')
+                            ->label('API Key (Modo Producción / Live)')
+                            ->password()
+                            ->revealable()
+                            ->columnSpan(1),
+
+                        \Filament\Forms\Components\Toggle::make('facturacion_produccion')
+                            ->label('Habilitar Modo Producción (Facturas Reales)')
+                            ->helperText('¡Atención! Al activar esto, las facturas tendrán validez fiscal ante el SAT.')
+                            ->onColor('danger') // Color rojo para advertir que es en serio
+                            ->columnSpanFull(),
+                    ])->columns(2),
             ]);
     }
 

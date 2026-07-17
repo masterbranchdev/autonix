@@ -21,7 +21,6 @@ class TransaccionResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
     protected static ?int $navigationSort = 3;
 
-
     public static function form(Form $form): Form
     {
         return $form
@@ -82,7 +81,6 @@ class TransaccionResource extends Resource
     {
         return $table
             ->columns([
-                // 2. COLUMNAS DE LA TABLA
                 \Filament\Tables\Columns\TextColumn::make('fecha')
                     ->date('d/m/Y')
                     ->sortable(),
@@ -96,7 +94,7 @@ class TransaccionResource extends Resource
 
                 \Filament\Tables\Columns\TextColumn::make('concepto')
                     ->searchable()
-                    ->wrap(), // Para que el texto largo baje a otra línea
+                    ->wrap(),
 
                 \Filament\Tables\Columns\TextColumn::make('monto')
                     ->money('MXN')
@@ -110,26 +108,30 @@ class TransaccionResource extends Resource
                 \Filament\Tables\Columns\IconColumn::make('requiere_factura')
                     ->label('Factura')
                     ->boolean(),
-            ])
-            ->defaultSort('fecha', 'desc') // Ordena del más reciente al más antiguo
-            ->filters([
-                // Filtros rápidos para ver solo ingresos o solo egresos
-                \Filament\Tables\Filters\SelectFilter::make('tipo')
-                    ->options([
-                        'Ingreso' => 'Solo Ingresos',
-                        'Egreso' => 'Solo Egresos',
-                    ]),
-            ])
 
+                // --- NUEVA COLUMNA DE ESTATUS FISCAL ---
+                \Filament\Tables\Columns\BadgeColumn::make('estado_factura')
+                    ->label('Estatus Fiscal')
+                    ->colors([
+                        'gray' => 'No Facturado',
+                        'success' => 'Timbrada',
+                        'danger' => 'Cancelada',
+                    ]),
+            ])
+            ->defaultSort('fecha', 'desc')
             ->filters([
-                // Filtros rápidos para ver solo ingresos o solo egresos
                 \Filament\Tables\Filters\SelectFilter::make('tipo')
                     ->options([
                         'Ingreso' => 'Solo Ingresos',
                         'Egreso' => 'Solo Egresos',
                     ]),
+                // --- NUEVO FILTRO PARA BUSCAR FACTURAS ---
+                \Filament\Tables\Filters\SelectFilter::make('estado_factura')
+                    ->options([
+                        'No Facturado' => 'Pendientes de Timbrar',
+                        'Timbrada' => 'Facturadas',
+                    ]),
             ])
-            // --- NUEVO BOTÓN EXCLUSIVO DE ADMINISTRADORES ---
             ->headerActions([
                 \Filament\Tables\Actions\Action::make('corte_caja')
                     ->label('Corte de Caja (Reporte)')
@@ -142,7 +144,7 @@ class TransaccionResource extends Resource
                         \Filament\Forms\Components\Grid::make(2)->schema([
                             \Filament\Forms\Components\DatePicker::make('fecha_inicio')
                                 ->label('Fecha de Inicio')
-                                ->default(now()->startOfMonth()) // Sugiere el mes actual por defecto
+                                ->default(now()->startOfMonth())
                                 ->required(),
                             \Filament\Forms\Components\DatePicker::make('fecha_fin')
                                 ->label('Fecha de Fin')
@@ -164,18 +166,58 @@ class TransaccionResource extends Resource
                             'fin' => $data['fecha_fin'],
                             'formato' => $data['formato'],
                         ]);
-
-                        // Descarga el archivo sin cerrar la página de Autonix
                         return redirect()->to($url);
                     })
-                    // EL CANDADO: Solo los Super Admin pueden ver y usar este botón
                     ->visible(fn () => auth()->user()->hasRole('super_admin')),
             ])
-            // ------------------------------------------------
-
-
             ->actions([
                 \Filament\Tables\Actions\EditAction::make(),
+
+                // --- EL BOTÓN MÁGICO DE FACTURAPI ---
+                \Filament\Tables\Actions\Action::make('timbrar_factura')
+                    ->label('Timbrar')
+                    ->icon('heroicon-o-bolt')
+                    ->color('warning')
+                    ->button()
+                    // Solo es visible si es un Ingreso, requiere factura y aún no se ha timbrado
+                    ->visible(fn (Transaccion $record) => $record->tipo === 'Ingreso' && $record->requiere_factura && $record->estado_factura === 'No Facturado')
+                    ->requiresConfirmation()
+                    ->modalHeading('Timbrar CFDI 4.0')
+                    ->modalDescription('¿Estás seguro de generar la factura ante el SAT para esta transacción? Esta acción consumirá timbres de tu cuenta.')
+                    ->modalSubmitActionLabel('Sí, Timbrar Factura')
+                    ->action(function (Transaccion $record) {
+                        // AQUÍ IRA LA LÓGICA DE LA API DE FACTURAPI
+                        // Por ahora, simularemos el éxito para ver que la interfaz reacciona
+
+                        $record->update([
+                            'estado_factura' => 'Timbrada',
+                            'factura_id' => 'simulacion_12345',
+                            'url_pdf_factura' => 'https://ejemplo.com/factura.pdf',
+                            'url_xml_factura' => 'https://ejemplo.com/factura.xml',
+                        ]);
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Factura Timbrada con Éxito')
+                            ->success()
+                            ->send();
+                    }),
+
+                // --- BOTONES PARA DESCARGAR PDF Y XML (Aparecen cuando ya se timbró) ---
+                \Filament\Tables\Actions\Action::make('descargar_pdf')
+                    ->label('PDF')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('danger')
+                    ->visible(fn (Transaccion $record) => $record->estado_factura === 'Timbrada')
+                    ->url(fn (Transaccion $record) => $record->url_pdf_factura)
+                    ->openUrlInNewTab(),
+
+                \Filament\Tables\Actions\Action::make('descargar_xml')
+                    ->label('XML')
+                    ->icon('heroicon-o-code-bracket')
+                    ->color('gray')
+                    ->visible(fn (Transaccion $record) => $record->estado_factura === 'Timbrada')
+                    ->url(fn (Transaccion $record) => $record->url_xml_factura)
+                    ->openUrlInNewTab(),
             ]);
     }
 

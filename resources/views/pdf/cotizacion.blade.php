@@ -43,9 +43,14 @@
 <button class="no-print" onclick="window.print()" style="margin-bottom: 15px; padding: 8px 15px; background: #2563eb; color: #fff; border: none; cursor: pointer; font-weight: bold; border-radius: 4px;">🖨️ Imprimir Presupuesto</button>
 
 @php
-    $taller = $cotizacion->ordenServicio->taller;
-    $vehiculo = $cotizacion->ordenServicio->vehiculo;
-    $cliente = $vehiculo->cliente;
+    // 1. Obtenemos el taller directo de la cotización o del usuario actual
+    $taller = \App\Models\Taller::find($cotizacion->taller_id);
+
+    // 2. Evaluamos si hay orden de servicio de forma segura
+    $orden = $cotizacion->ordenServicio;
+    $vehiculo = $orden ? $orden->vehiculo : null;
+    $cliente = $vehiculo ? $vehiculo->cliente : null;
+
     $asesor = auth()->check() ? auth()->user()->name : 'Asesor de Servicio';
 
     $logoBase64 = null;
@@ -80,15 +85,15 @@
 <div class="info-grid">
     <div class="info-col">
         <div style="font-size: 12px; font-weight: bold; margin-bottom: 8px; border-bottom: 1px solid #ccc; padding-bottom: 4px;">Atención a:</div>
-        <div class="info-row"><span class="info-label">Cliente:</span> {{ $cliente->nombre }}</div>
-        <div class="info-row"><span class="info-label">Teléfono:</span> {{ $cliente->telefono }}</div>
-        <div class="info-row"><span class="info-label">Email:</span> {{ $cliente->email ?? 'N/A' }}</div>
+        <div class="info-row"><span class="info-label">Cliente:</span> {{ $cliente ? $cliente->nombre : 'Cotización General' }}</div>
+        <div class="info-row"><span class="info-label">Teléfono:</span> {{ $cliente ? $cliente->telefono : 'N/A' }}</div>
+        <div class="info-row"><span class="info-label">Email:</span> {{ ($cliente && $cliente->email) ? $cliente->email : 'N/A' }}</div>
     </div>
     <div class="info-col">
         <div style="font-size: 12px; font-weight: bold; margin-bottom: 8px; border-bottom: 1px solid #ccc; padding-bottom: 4px;">Datos del Vehículo:</div>
-        <div class="info-row"><span class="info-label">Unidad:</span> {{ $vehiculo->marca }} {{ $vehiculo->modelo }} ({{ $vehiculo->anio }})</div>
-        <div class="info-row"><span class="info-label">Placas:</span> {{ $vehiculo->placas }} &nbsp;|&nbsp; <span class="info-label">Color:</span> {{ $vehiculo->color }}</div>
-        <div class="info-row"><span class="info-label">VIN:</span> {{ $vehiculo->vin ?? 'N/A' }}</div>
+        <div class="info-row"><span class="info-label">Unidad:</span> {{ $vehiculo ? ($vehiculo->marca . ' ' . $vehiculo->modelo . ' (' . $vehiculo->anio . ')') : 'Vehículo no registrado' }}</div>
+        <div class="info-row"><span class="info-label">Placas:</span> {{ $vehiculo ? $vehiculo->placas : 'N/A' }} &nbsp;|&nbsp; <span class="info-label">Color:</span> {{ $vehiculo ? $vehiculo->color : 'N/A' }}</div>
+        <div class="info-row"><span class="info-label">VIN:</span> {{ ($vehiculo && $vehiculo->vin) ? $vehiculo->vin : 'N/A' }}</div>
     </div>
 </div>
 

@@ -78,12 +78,11 @@ class CotizacionResource extends Resource
                 \Filament\Forms\Components\Section::make('Datos de la Cotización')
                     ->schema([
                         \Filament\Forms\Components\Select::make('orden_servicio_id')
-                            ->label('Orden de Servicio (Diagnóstico)')
+                            ->label('Orden de Servicio (Opcional)')
                             ->relationship('ordenServicio', 'folio')
                             ->getOptionLabelFromRecordUsing(fn (\App\Models\OrdenServicio $record) => "Folio: {$record->folio} - " . ($record->vehiculo ? $record->vehiculo->placas : ''))
                             ->searchable()
                             ->preload()
-                            ->required()
                             ->columnSpan(2),
 
                         \Filament\Forms\Components\Select::make('estatus')
@@ -351,12 +350,13 @@ class CotizacionResource extends Resource
                     }),
                 // --- FIN DEL NUEVO BOTÓN ---
 
-                // EL BOTÓN DE COBRO (MODAL ACTUALIZADO CON REFERENCIA)
+                // EL BOTÓN DE COBRO (CON FORMULARIO RESTAURADO Y BARRERA DE SEGURIDAD)
                 \Filament\Tables\Actions\Action::make('cobrar')
                     ->label('Cobrar')
                     ->icon('heroicon-o-banknotes')
                     ->color('success')
-//                    ->hidden(fn (\App\Models\Cotizacion $record) => $record->pagado)
+                    // 1. Ocultamos el botón si no hay Orden de Servicio (Cotización Abierta)
+                    ->hidden(fn (\App\Models\Cotizacion $record) => is_null($record->orden_servicio_id))
                     ->modalHeading(fn (\App\Models\Cotizacion $record) => 'Cobrar Folio: ' . $record->folio)
                     ->modalDescription('Confirme el método de pago y registre el folio de rastreo si aplica.')
                     ->modalSubmitActionLabel('Registrar Ingreso')
@@ -377,13 +377,11 @@ class CotizacionResource extends Resource
                                 'Transferencia SPEI' => 'Transferencia SPEI',
                             ])
                             ->required()
-                            ->live(), // Hace que el formulario escuche el cambio al instante
+                            ->live(),
 
-                        // CAMPO DINÁMICO DE REFERENCIA
                         \Filament\Forms\Components\TextInput::make('referencia')
                             ->label('Número de Referencia / Autorización')
                             ->placeholder('Ej. 0928374')
-                            // Solo es obligatorio y visible si NO es efectivo
                             ->required(fn (\Filament\Forms\Get $get) => in_array($get('metodo_pago'), ['Tarjeta de Débito', 'Tarjeta de Crédito', 'Transferencia SPEI']))
                             ->visible(fn (\Filament\Forms\Get $get) => in_array($get('metodo_pago'), ['Tarjeta de Débito', 'Tarjeta de Crédito', 'Transferencia SPEI'])),
 
@@ -393,22 +391,33 @@ class CotizacionResource extends Resource
                             ->onColor('success'),
                     ])
                     ->action(function (\App\Models\Cotizacion $record, array $data) {
-                        // 1. Registramos el ingreso con todo y referencia
+                        // --- BARRERA DE SEGURIDAD: PREVENIR DUPLICADOS ---
+                        $transaccionPrevia = \App\Models\Transaccion::where('taller_id', $record->taller_id)
+                            ->where('cotizacion_id', $record->id)
+                            ->first();
+
+                        if ($transaccionPrevia) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('Pago ya registrado')
+                                ->body('Ya existe una transacción para esta cotización. Por favor, borre el ingreso previo en el módulo de Caja y Finanzas antes de intentar cobrar de nuevo.')
+                                ->danger()
+                                ->send();
+                            return; // Detenemos la ejecución aquí
+                        }
+                        // ------------------------------------------------
+
                         \App\Models\Transaccion::create([
                             'taller_id' => $record->taller_id,
                             'cotizacion_id' => $record->id,
                             'tipo' => 'Ingreso',
-                            // --- ESTA ES LA LÍNEA QUE CAMBIAMOS ---
                             'concepto' => "Pago de cotización: {$record->folio} orden de servicio: {$record->ordenServicio->folio}",
-                            // --------------------------------------
                             'monto' => $record->total,
                             'metodo_pago' => $data['metodo_pago'],
-                            'referencia' => $data['referencia'] ?? null, // Guardamos el rastreo
+                            'referencia' => $data['referencia'] ?? null,
                             'requiere_factura' => $data['requiere_factura'],
                             'fecha' => now(),
                         ]);
 
-                        // 2. Marcamos la cotización como pagada
                         $record->update([
                             'pagado' => true,
                             'estatus' => 'Aprobada'
@@ -433,6 +442,7 @@ class CotizacionResource extends Resource
                     ->label('WhatsApp')
                     ->icon('heroicon-o-chat-bubble-left-right')
                     ->color('success')
+                    ->hidden(fn (\App\Models\Cotizacion $record) => is_null($record->orden_servicio_id)) // <-- NUEVA LÍNEA
                     ->url(function (\App\Models\Cotizacion $record) {
                         $orden = $record->ordenServicio;
                         $vehiculo = $orden->vehiculo;

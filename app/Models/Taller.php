@@ -28,7 +28,10 @@ class Taller extends Model
         'horario_atencion',
         'openai_api_key',
         'limite_ia_mensual',
-        'consumo_ia_mes'
+        'consumo_ia_mes',
+        'facturapi_key_test',
+        'facturapi_key_live',
+        'facturacion_produccion',
     ];
 
     // 1. Le decimos el nombre exacto de la tabla en español

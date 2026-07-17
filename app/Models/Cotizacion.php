@@ -10,18 +10,37 @@ class Cotizacion extends Model
     protected $guarded = [];
 
     // Generar Folio Automático para la Cotización
+    // Generar Folio Automático para la Cotización (A PRUEBA DE BALAS)
     protected static function booted()
     {
         static::creating(function ($cotizacion) {
             if (empty($cotizacion->folio)) {
-                $anioActual = now()->year;
-                $totalAnio = self::where('taller_id', $cotizacion->taller_id)
-                    ->whereYear('created_at', $anioActual)
-                    ->count();
+                $year = now()->format('Y');
+                $tallerId = $cotizacion->taller_id;
 
-                $siguiente = $totalAnio + 1;
-                // Formato de cotización: C[ID]-AÑO-CONSECUTIVO
-                $cotizacion->folio = 'C' . $cotizacion->taller_id . '-' . $anioActual . '-' . str_pad($siguiente, 4, '0', STR_PAD_LEFT);
+                // 1. Calculamos un punto de partida rápido
+                $ultimaCotizacion = self::where('taller_id', $tallerId)
+                    ->where('folio', 'like', "C{$tallerId}-{$year}-%")
+                    ->orderBy('id', 'desc')
+                    ->first();
+
+                $consecutivo = 1;
+                if ($ultimaCotizacion) {
+                    $partes = explode('-', $ultimaCotizacion->folio);
+                    $consecutivo = intval(end($partes)) + 1;
+                }
+
+                // 2. EL BLINDAJE DEFINITIVO: Verificamos en tiempo real si el folio existe.
+                // Si la BD nos dice que ya hay uno (por la razón que sea), sumamos 1 y volvemos a preguntar.
+                $folioPropuesto = "C{$tallerId}-{$year}-" . str_pad($consecutivo, 4, '0', STR_PAD_LEFT);
+
+                while (self::where('folio', $folioPropuesto)->exists()) {
+                    $consecutivo++;
+                    $folioPropuesto = "C{$tallerId}-{$year}-" . str_pad($consecutivo, 4, '0', STR_PAD_LEFT);
+                }
+
+                // 3. Asignamos el folio garantizado como único
+                $cotizacion->folio = $folioPropuesto;
             }
         });
     }
