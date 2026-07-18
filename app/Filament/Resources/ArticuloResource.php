@@ -52,7 +52,7 @@ class ArticuloResource extends Resource
                             ->helperText(fn (\Filament\Forms\Get $get) =>
                             $get('tipo') === 'Servicio'
                                 ? 'Sugerencia para Servicios: 81141601 (Mantenimiento de vehículos)'
-                                : 'Sugerencia para Refacciones: 25170000 (Componentes automotrices)'
+                                : 'Sugerencia para Refacciones: 25174000 (Refacciones automotrices)' // <-- Clave corregida y segura
                             ),
 
                         \Filament\Forms\Components\TextInput::make('unidad_sat')

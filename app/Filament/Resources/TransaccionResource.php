@@ -204,8 +204,8 @@ class TransaccionResource extends Resource
                         \Filament\Forms\Components\Select::make('metodo_pago_sat')
                             ->label('Método de Pago (SAT)')
                             ->options([
-                                'PUE' => 'PUE - Pago en una sola exhibición (Contado)',
-                                'PPD' => 'PPD - Pago en parcialidades o diferido (Crédito)',
+                                'PUE' => 'PUE - Pago en una sola exhibición (Ya liquidado)',
+                                'PPD' => 'PPD - Pago en parcialidades o diferido (Fiado / Pago a plazos)',
                             ])
                             ->default('PUE')
                             ->required(),
