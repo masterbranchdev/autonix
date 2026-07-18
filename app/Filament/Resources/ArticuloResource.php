@@ -28,15 +28,42 @@ class ArticuloResource extends Resource
     {
         return $form
             ->schema([
-                //
                 \Filament\Forms\Components\Hidden::make('taller_id')->default(auth()->user()->taller_id),
+
+                // NOTA: Le agregamos ->live() para que reaccione al instante con las sugerencias fiscales
                 \Filament\Forms\Components\Select::make('tipo')
-                    ->options(['Producto' => 'Producto (Refacción)', 'Servicio' => 'Servicio (Mano de obra)'])->required(),
+                    ->options(['Producto' => 'Producto (Refacción)', 'Servicio' => 'Servicio (Mano de obra)'])
+                    ->required()
+                    ->live(),
+
                 \Filament\Forms\Components\TextInput::make('nombre')->required(),
                 \Filament\Forms\Components\TextInput::make('precio')->numeric()->prefix('$')->required(),
                 \Filament\Forms\Components\Toggle::make('maneja_stock')->label('¿Llevar control de inventario?')->live(),
                 \Filament\Forms\Components\TextInput::make('stock')->numeric()->default(0)
                     ->hidden(fn (\Filament\Forms\Get $get) => !$get('maneja_stock')),
+
+                // --- AQUÍ VA LA SECCIÓN FISCAL (Dentro del Formulario) ---
+                \Filament\Forms\Components\Section::make('Configuración Fiscal (Opcional)')
+                    ->icon('heroicon-o-calculator')
+                    ->schema([
+                        \Filament\Forms\Components\TextInput::make('clave_sat')
+                            ->label('Clave Prod/Serv SAT')
+                            ->placeholder('Ej. 81141601')
+                            ->helperText(fn (\Filament\Forms\Get $get) =>
+                            $get('tipo') === 'Servicio'
+                                ? 'Sugerencia para Servicios: 81141601 (Mantenimiento de vehículos)'
+                                : 'Sugerencia para Refacciones: 25170000 (Componentes automotrices)'
+                            ),
+
+                        \Filament\Forms\Components\TextInput::make('unidad_sat')
+                            ->label('Clave de Unidad SAT')
+                            ->placeholder('Ej. E48')
+                            ->helperText(fn (\Filament\Forms\Get $get) =>
+                            $get('tipo') === 'Servicio'
+                                ? 'Sugerencia: E48 (Unidad de servicio)'
+                                : 'Sugerencia: H87 (Pieza)'
+                            ),
+                    ])->columns(2),
             ]);
     }
 
@@ -74,9 +101,10 @@ class ArticuloResource extends Resource
                     ->label('Existencias')
                     ->numeric()
                     ->sortable(),
+                // (Ya quitamos la sección fiscal de aquí)
             ])
             ->filters([
-                // Aquí podrías agregar filtros más adelante (ej. Ver solo Servicios)
+                // Aquí podrías agregar filtros más adelante
             ])
             ->actions([
                 \Filament\Tables\Actions\EditAction::make(),

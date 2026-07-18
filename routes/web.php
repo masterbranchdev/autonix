@@ -149,4 +149,57 @@ Route::get('/finanzas/corte', function (Request $request) {
 
 // -----------------------------
 
+
+// RUTA PARA DESCARGAR PDF AL VUELO
+Route::get('/factura/{transaccion}/pdf', function(Transaccion $transaccion) {
+    if (empty($transaccion->factura_id)) abort(404, 'Factura no encontrada');
+
+    $taller = $transaccion->taller;
+    $apiKey = $taller->facturacion_produccion ? $taller->facturapi_key_live : $taller->facturapi_key_test;
+    $tenantKey = $taller->facturacion_produccion ? $taller->fiscalapi_tenant_live : $taller->fiscalapi_tenant_test;
+    $baseUrl = $taller->facturacion_produccion ? 'https://live.fiscalapi.com' : 'https://test.fiscalapi.com';
+
+    $response = Http::withHeaders(['X-API-KEY' => $apiKey, 'X-TENANT-KEY' => $tenantKey])
+        ->post("{$baseUrl}/api/v4/invoices/pdf", ['invoiceId' => $transaccion->factura_id]);
+
+    // --- RAYOS X: Si Fiscal API falla, mostramos el error exacto ---
+    if (!$response->successful()) {
+        dd('Fallo al pedir PDF a Fiscal API', 'Status HTTP: ' . $response->status(), 'Respuesta:', $response->json(), 'ID que intentaste enviar:', $transaccion->factura_id);
+    }
+
+    if($base64 = $response->json('data.base64File')) {
+        return response()->streamDownload(function () use ($base64) {
+            echo base64_decode($base64);
+        }, "Factura_Autonix_{$transaccion->id}.pdf", ['Content-Type' => 'application/pdf']);
+    }
+
+    abort(500, 'El servidor de Fiscal API respondió bien pero no devolvió el archivo en Base64.');
+})->name('descargar.factura.pdf');
+
+// RUTA PARA DESCARGAR XML AL VUELO
+Route::get('/factura/{transaccion}/xml', function(Transaccion $transaccion) {
+    if (empty($transaccion->factura_id)) abort(404, 'Factura no encontrada');
+
+    $taller = $transaccion->taller;
+    $apiKey = $taller->facturacion_produccion ? $taller->facturapi_key_live : $taller->facturapi_key_test;
+    $tenantKey = $taller->facturacion_produccion ? $taller->fiscalapi_tenant_live : $taller->fiscalapi_tenant_test;
+    $baseUrl = $taller->facturacion_produccion ? 'https://live.fiscalapi.com' : 'https://test.fiscalapi.com';
+
+    $response = Http::withHeaders(['X-API-KEY' => $apiKey, 'X-TENANT-KEY' => $tenantKey])
+        ->get("{$baseUrl}/api/v4/invoices/{$transaccion->factura_id}/xml");
+
+    // --- RAYOS X: Si Fiscal API falla, mostramos el error exacto ---
+    if (!$response->successful()) {
+        dd('Fallo al pedir XML a Fiscal API', 'Status HTTP: ' . $response->status(), 'Respuesta:', $response->json(), 'ID que intentaste enviar:', $transaccion->factura_id);
+    }
+
+    if($base64 = $response->json('data.base64File')) {
+        return response()->streamDownload(function () use ($base64) {
+            echo base64_decode($base64);
+        }, "Factura_Autonix_{$transaccion->id}.xml", ['Content-Type' => 'text/xml']);
+    }
+
+    abort(500, 'El servidor de Fiscal API respondió bien pero no devolvió el archivo en Base64.');
+})->name('descargar.factura.xml');
+
 //require __DIR__.'/auth.php';

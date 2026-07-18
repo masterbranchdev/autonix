@@ -32,6 +32,12 @@ class Taller extends Model
         'facturapi_key_test',
         'facturapi_key_live',
         'facturacion_produccion',
+        'rfc',
+        'razon_social',
+        'codigo_postal',
+        'regimen_fiscal',
+        'fiscalapi_tenant_test',
+        'fiscalapi_tenant_live',
     ];
 
     // 1. Le decimos el nombre exacto de la tabla en español

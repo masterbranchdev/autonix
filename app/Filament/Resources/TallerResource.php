@@ -151,7 +151,38 @@ class TallerResource extends Resource
                     ->disabled() // Solo lectura para ti, el sistema lo actualiza solo
                     ->helperText('Se reinicia a 0 cada mes.'),
 
-                // --- NUEVA SECCIÓN: CONFIGURACIÓN DE FACTURAPI ---
+                // --- NUEVA SECCIÓN: DATOS DEL EMISOR (SAT) ---
+                \Filament\Forms\Components\Section::make('Datos Fiscales del Taller (Emisor)')
+                    ->description('Estos datos son obligatorios para que el taller pueda emitir facturas (CFDI 4.0).')
+                    ->icon('heroicon-o-identification')
+                    ->schema([
+                        \Filament\Forms\Components\TextInput::make('rfc')
+                            ->label('RFC del Taller')
+                            ->maxLength(13)
+                            ->extraInputAttributes(['style' => 'text-transform: uppercase;']),
+
+                        \Filament\Forms\Components\TextInput::make('razon_social')
+                            ->label('Razón Social (Nombre legal)')
+                            ->helperText('Exactamente como aparece en la Constancia de Situación Fiscal del Taller.'),
+
+                        \Filament\Forms\Components\TextInput::make('codigo_postal')
+                            ->label('Código Postal (Lugar de Expedición)')
+                            ->maxLength(5)
+                            ->numeric(),
+
+                        \Filament\Forms\Components\Select::make('regimen_fiscal')
+                            ->label('Régimen Fiscal del Taller')
+                            ->searchable()
+                            ->options([
+                                '601' => '601 - General de Ley Personas Morales',
+                                '612' => '612 - Personas Físicas con Actividades Empresariales y Profesionales',
+                                '621' => '621 - Incorporación Fiscal (RIF)',
+                                '626' => '626 - Régimen Simplificado de Confianza (RESICO)',
+                                // Puedes agregar más del catálogo si lo deseas
+                            ]),
+                    ])->columns(2),
+
+                // --- NUEVA SECCIÓN: CONFIGURACIÓN DE FISCALAPI ---
                 \Filament\Forms\Components\Section::make('Configuración de Facturación (CFDI 4.0)')
                     ->description('Ingresa tus credenciales de Facturapi para habilitar el timbrado de facturas desde Autonix.')
                     ->icon('heroicon-o-building-office')
@@ -174,6 +205,37 @@ class TallerResource extends Resource
                             ->onColor('danger') // Color rojo para advertir que es en serio
                             ->columnSpanFull(),
                     ])->columns(2),
+
+                \Filament\Forms\Components\Section::make('Credenciales de Facturación (Fiscal API)')
+                    ->icon('heroicon-o-key')
+                    ->schema([
+                        \Filament\Forms\Components\Toggle::make('facturacion_produccion')
+                            ->label('Habilitar Modo Producción (Facturas Reales)')
+                            ->inline(false)
+                            ->columnSpanFull(),
+
+                        \Filament\Forms\Components\TextInput::make('facturapi_key_test')
+                            ->label('API Key (Pruebas)')
+                            ->password()
+                            ->revealable(),
+
+                        \Filament\Forms\Components\TextInput::make('fiscalapi_tenant_test')
+                            ->label('Tenant Key / TID (Pruebas)')
+                            ->password()
+                            ->revealable(),
+
+                        \Filament\Forms\Components\TextInput::make('facturapi_key_live')
+                            ->label('API Key (Producción)')
+                            ->password()
+                            ->revealable(),
+
+                        \Filament\Forms\Components\TextInput::make('fiscalapi_tenant_live')
+                            ->label('Tenant Key / TID (Producción)')
+                            ->password()
+                            ->revealable(),
+                    ])->columns(2),
+
+
             ]);
     }
 
