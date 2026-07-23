@@ -156,6 +156,70 @@
         </div>
     @endif
 
+    <!-- NUEVA GALERÍA DE EVIDENCIA FOTOGRÁFICA -->
+    <!-- EVIDENCIA FOTOGRÁFICA (Estilo Agencia Premium) -->
+    @if(!empty($orden->evidencia_fotografica))
+        <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden mt-6">
+
+            <!-- Encabezado Premium -->
+            <div class="p-5 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shadow-sm border border-blue-100/50">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-sm font-bold uppercase text-slate-800 tracking-wider">
+                        Reporte Fotográfico
+                    </h3>
+                </div>
+                <span class="bg-white border border-slate-200 text-slate-500 text-[10px] py-1 px-3 rounded-full font-black tracking-widest shadow-sm">
+            {{ count($orden->evidencia_fotografica) }} {{ count($orden->evidencia_fotografica) == 1 ? 'FOTO' : 'FOTOS' }}
+        </span>
+            </div>
+
+            <!-- Galería Dinámica -->
+            <div class="p-5">
+                <div class="grid grid-cols-2 gap-4">
+                    @foreach($orden->evidencia_fotografica as $index => $evidencia)
+                        <a href="{{ Storage::disk('s3')->url($evidencia['foto']) }}" target="_blank"
+                           class="group relative rounded-2xl overflow-hidden bg-slate-100 shadow-sm ring-1 ring-slate-200/60 hover:ring-blue-400 transition-all duration-300 block
+                   {{ $index === 0 && count($orden->evidencia_fotografica) % 2 !== 0 ? 'col-span-2 aspect-video' : 'aspect-square' }}">
+
+                            <!-- Imagen con Zoom Cinemático -->
+                            <img src="{{ Storage::disk('s3')->url($evidencia['foto']) }}" alt="Evidencia Técnica"
+                                 class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700 ease-out">
+
+                            <!-- Overlay Glassmorphism (Aparece en Hover) -->
+                            <div class="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/20 transition-colors duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100 z-10">
+                                <div class="bg-white/90 backdrop-blur-md p-2.5 rounded-full shadow-xl text-slate-800 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                    </svg>
+                                </div>
+                            </div>
+
+                            <!-- Observación Elegante -->
+                            @if(!empty($evidencia['observacion']))
+                                <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-900/95 via-slate-900/70 to-transparent p-4 pt-14 z-20">
+                                    <div class="flex items-start gap-2">
+                                        <svg class="w-4 h-4 text-blue-400 mt-0.5 shrink-0 opacity-90" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                        </svg>
+                                        <p class="text-xs text-white/95 font-medium leading-relaxed line-clamp-2 drop-shadow-md">
+                                            {{ $evidencia['observacion'] }}
+                                        </p>
+                                    </div>
+                                </div>
+                            @endif
+                        </a>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+    @endif
+
     <div x-data="{ open: false }" class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
         <button @click="open = !open" class="w-full flex justify-between items-center p-5 focus:outline-none">
                 <span class="text-sm font-black uppercase text-slate-700 tracking-wider flex items-center gap-2">

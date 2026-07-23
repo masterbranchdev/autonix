@@ -16,6 +16,7 @@ class OrdenServicio extends Model
         'testigos' => 'array',           // <--- NUEVO
         'danios_carroceria' => 'array',  // <--- NUEVO
         'fecha_ingreso' => 'datetime',
+        'evidencia_fotografica' => 'array',
     ];
 
 // LA MAGIA DEL FOLIO AUTOMÁTICO (Globalmente Único por Taller)

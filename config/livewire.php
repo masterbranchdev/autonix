@@ -66,7 +66,7 @@ return [
     'temporary_file_upload' => [
         'disk' => 's3', // <--- CAMBIA 'default' POR 's3'
         'rules' => null,
-        'directory' => 'logo-taller', // <--- AQUÍ LE DAS EL NOMBRE QUE QUIERES
+        'directory' => 'livewire-tmp', // <--- AQUÍ LE DAS EL NOMBRE QUE QUIERES
         'middleware' => null,
         'preview_mimes' => [   // Supported file types for temporary pre-signed file URLs.
             'png', 'gif', 'bmp', 'svg', 'wav', 'mp4',

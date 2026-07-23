@@ -488,6 +488,86 @@ class OrdenServicioResource extends Resource
             ->actions([
                 \Filament\Tables\Actions\EditAction::make(),
 
+
+                // --- BOTÓN PARA EVIDENCIA FOTOGRÁFICA (MODAL CORRECTO + AWS S3) ---
+                \Filament\Tables\Actions\Action::make('evidencia') // Usamos Action para forzar siempre la ventanita modal
+                ->label('Fotos')
+                    ->icon('heroicon-o-camera')
+                    ->color('info')
+                    ->modalHeading('Evidencia Fotográfica del Servicio')
+                    ->modalDescription('Sube hasta 5 fotografías.')
+                    ->modalWidth('3xl')
+                    // 1. Cargamos las fotos que ya existen en la BD
+                    ->fillForm(fn (\App\Models\OrdenServicio $record): array => [
+                        'evidencia_fotografica' => $record->evidencia_fotografica,
+                    ])
+                    ->form([
+                        \Filament\Forms\Components\Repeater::make('evidencia_fotografica')
+                            ->hiddenLabel()
+                            ->schema([
+                                \Filament\Forms\Components\FileUpload::make('foto')
+                                    ->label('Fotografía')
+                                    ->image()
+                                    ->imageEditor()
+                                    ->disk('s3')
+                                    ->visibility('public')
+                                    ->moveFiles() // <--- ESTO ES LO QUE SACA LA FOTO DE LIVEWIRE-TMP
+                                    ->directory(fn (\App\Models\OrdenServicio $record) => "evidencia_ordenes/{$record->folio}")
+                                    ->getUploadedFileNameForStorageUsing(
+                                        function (\Illuminate\Http\UploadedFile $file, \App\Models\OrdenServicio $record) {
+                                            $extension = $file->getClientOriginalExtension();
+                                            $timestamp = uniqid();
+                                            return "evidencia_{$record->folio}_{$timestamp}.{$extension}";
+                                        }
+                                    )
+                                    // Compresión nativa ultra ligera (Intervention Image)
+                                    ->imageResizeMode('cover')
+                                    ->imageResizeTargetWidth(1080)
+                                    ->imageResizeTargetHeight(1080)
+                                    ->required()
+                                    ->columnSpan(2),
+
+                                \Filament\Forms\Components\TextInput::make('observacion')
+                                    ->label('Observación (Opcional)')
+                                    ->placeholder('Ej. Banda de tiempo desgastada')
+                                    ->maxLength(255)
+                                    ->columnSpan(2),
+                            ])
+                            ->columns(2)
+                            ->addActionLabel('Añadir Fotografía')
+                            ->maxItems(5)
+                            ->grid(2)
+                            ->columnSpanFull(),
+                    ])
+                    // 2. Guardamos la columna manualmente y limpiamos la basura en S3
+                    ->action(function (\App\Models\OrdenServicio $record, array $data): void {
+                        $viejasEvidencias = $record->evidencia_fotografica ?? [];
+                        $nuevasEvidencias = $data['evidencia_fotografica'] ?? [];
+
+                        // Extraemos solo las rutas de los archivos de ambos arreglos
+                        $fotosViejas = collect($viejasEvidencias)->pluck('foto')->filter()->toArray();
+                        $fotosNuevas = collect($nuevasEvidencias)->pluck('foto')->filter()->toArray();
+
+                        // Encontramos cuáles se borraron (están en las viejas pero ya no en las nuevas)
+                        $fotosABorrar = array_diff($fotosViejas, $fotosNuevas);
+
+                        // Las eliminamos físicamente de AWS S3
+                        if (!empty($fotosABorrar)) {
+                            \Illuminate\Support\Facades\Storage::disk('s3')->delete($fotosABorrar);
+                        }
+
+                        // Actualizamos la base de datos con el nuevo arreglo (ya sin el comentario ni la foto)
+                        $record->update([
+                            'evidencia_fotografica' => $nuevasEvidencias,
+                        ]);
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Galería actualizada correctamente')
+                            ->success()
+                            ->send();
+                    }),
+
+
                 // --- BOTÓN DE CAMBIO RÁPIDO DE ESTATUS (CON WHATSAPP INTELIGENTE) ---
                 \Filament\Tables\Actions\Action::make('cambiar_estatus')
                     ->label('Estatus')
