@@ -33,8 +33,14 @@ class OrdenServicioResource extends Resource
                 // Buscador inteligente de autos
                 \Filament\Forms\Components\Select::make('vehiculo_id')
                     ->label('Vehículo a ingresar')
-                    ->relationship('vehiculo', 'id')
-                    ->getOptionLabelFromRecordUsing(fn (\App\Models\Vehiculo $record) => trim("{$record->marca} {$record->modelo} " . ($record->placas ? "- Placas: {$record->placas}" : '')))
+                    ->relationship(
+                        name: 'vehiculo',
+                        titleAttribute: 'id',
+                        // Cargamos al cliente para tener su nombre disponible
+                        modifyQueryUsing: fn (\Illuminate\Database\Eloquent\Builder $query) => $query->with('cliente')->latest('id')
+                    )
+                    // AQUI AGREGAMOS EL NOMBRE DEL CLIENTE AL FINAL
+                    ->getOptionLabelFromRecordUsing(fn (\App\Models\Vehiculo $record) => trim("{$record->marca} {$record->modelo} " . ($record->placas ? "- Placas: {$record->placas}" : '')) . ($record->cliente ? " - {$record->cliente->nombre}" : ''))
                     ->searchable(['marca', 'modelo', 'placas'])
                     ->preload()
                     ->live() // Hace que el formulario reaccione al elegir un auto
@@ -463,6 +469,7 @@ class OrdenServicioResource extends Resource
                 \Filament\Tables\Columns\TextColumn::make('folio')
                     ->searchable()
                     ->sortable()
+                    ->color('primary')
                     ->weight('bold'),
                 \Filament\Tables\Columns\TextColumn::make('vehiculo.placas')
                     ->label('Vehículo')
@@ -484,6 +491,7 @@ class OrdenServicioResource extends Resource
                     ->sortable()
                     ->searchable(),
             ])
+            ->defaultSort('id', 'desc')
             ->filters([
                 //
             ])

@@ -79,8 +79,14 @@ class CotizacionResource extends Resource
                     ->schema([
                         \Filament\Forms\Components\Select::make('orden_servicio_id')
                             ->label('Orden de Servicio (Opcional)')
-                            ->relationship('ordenServicio', 'folio')
-                            ->getOptionLabelFromRecordUsing(fn (\App\Models\OrdenServicio $record) => "Folio: {$record->folio} - " . ($record->vehiculo ? $record->vehiculo->placas : ''))
+                            ->relationship(
+                                name: 'ordenServicio',
+                                titleAttribute: 'folio',
+                                // Cargamos el vehículo y su dueño para que no sea lento
+                                modifyQueryUsing: fn (\Illuminate\Database\Eloquent\Builder $query) => $query->with('vehiculo.cliente')->latest('id')
+                            )
+                            // AQUI AGREGAMOS EL NOMBRE DEL CLIENTE AL FINAL
+                            ->getOptionLabelFromRecordUsing(fn (\App\Models\OrdenServicio $record) => "Folio: {$record->folio} - " . ($record->vehiculo ? $record->vehiculo->placas : 'Sin placas') . ($record->vehiculo && $record->vehiculo->cliente ? " - {$record->vehiculo->cliente->nombre}" : ''))
                             ->searchable()
                             ->preload()
                             ->columnSpan(2),
@@ -330,6 +336,7 @@ class CotizacionResource extends Resource
                     ->toggleable()
                     ->visibleFrom('md'),
             ])
+            ->defaultSort('id', 'desc')
             ->filters([
                 //
             ])

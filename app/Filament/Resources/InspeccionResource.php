@@ -36,9 +36,10 @@ class InspeccionResource extends Resource
                     ->relationship(
                         name: 'ordenServicio',
                         titleAttribute: 'folio',
-                        modifyQueryUsing: fn (\Illuminate\Database\Eloquent\Builder $query) => $query->with('vehiculo.cliente')
+                        modifyQueryUsing: fn (\Illuminate\Database\Eloquent\Builder $query) => $query->with('vehiculo.cliente')->latest('id')
                     )
-                    ->getOptionLabelFromRecordUsing(fn (\App\Models\OrdenServicio $record) => "Folio: {$record->folio} - " . ($record->vehiculo ? $record->vehiculo->placas : 'Sin placas'))
+                    // AQUI AGREGAMOS EL NOMBRE DEL CLIENTE AL FINAL
+                    ->getOptionLabelFromRecordUsing(fn (\App\Models\OrdenServicio $record) => "Folio: {$record->folio} - " . ($record->vehiculo ? $record->vehiculo->placas : 'Sin placas') . ($record->vehiculo && $record->vehiculo->cliente ? " - {$record->vehiculo->cliente->nombre}" : ''))
                     ->searchable(['folio'])
                     ->preload()
                     ->required()
@@ -231,6 +232,7 @@ class InspeccionResource extends Resource
                     ->toggleable()
                     ->visibleFrom('md'),
             ])
+            ->defaultSort('id', 'desc')
             ->filters([
                 //
             ])
