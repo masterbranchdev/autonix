@@ -469,7 +469,9 @@ class OrdenServicioResource extends Resource
                     ->searchable(),
                 \Filament\Tables\Columns\TextColumn::make('fecha_ingreso')
                     ->dateTime('d/m/Y h:i A')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable() // Permite ocultar/mostrar desde el menú de columnas
+                    ->visibleFrom('md'), // Hace "collapse" ocultándose en celulares automáticamente
                 \Filament\Tables\Columns\BadgeColumn::make('estatus')
                     ->colors([
                         'gray' => 'Ingresado',
@@ -486,196 +488,187 @@ class OrdenServicioResource extends Resource
                 //
             ])
             ->actions([
-                \Filament\Tables\Actions\EditAction::make(),
+                // --- EL DROP (MENÚ DESPLEGABLE MINIMALISTA) ---
+                \Filament\Tables\Actions\ActionGroup::make([
 
+                    \Filament\Tables\Actions\EditAction::make(),
 
-                // --- BOTÓN PARA EVIDENCIA FOTOGRÁFICA (MODAL CORRECTO + AWS S3) ---
-                \Filament\Tables\Actions\Action::make('evidencia') // Usamos Action para forzar siempre la ventanita modal
-                ->label('Fotos')
-                    ->icon('heroicon-o-camera')
-                    ->color('info')
-                    ->modalHeading('Evidencia Fotográfica del Servicio')
-                    ->modalDescription('Sube hasta 5 fotografías.')
-                    ->modalWidth('3xl')
-                    // 1. Cargamos las fotos que ya existen en la BD
-                    ->fillForm(fn (\App\Models\OrdenServicio $record): array => [
-                        'evidencia_fotografica' => $record->evidencia_fotografica,
-                    ])
-                    ->form([
-                        \Filament\Forms\Components\Repeater::make('evidencia_fotografica')
-                            ->hiddenLabel()
-                            ->schema([
-                                \Filament\Forms\Components\FileUpload::make('foto')
-                                    ->label('Fotografía')
-                                    ->image()
-                                    ->imageEditor()
-                                    ->disk('s3')
-                                    ->visibility('public')
-                                    ->moveFiles() // <--- ESTO ES LO QUE SACA LA FOTO DE LIVEWIRE-TMP
-                                    ->directory(fn (\App\Models\OrdenServicio $record) => "evidencia_ordenes/{$record->folio}")
-                                    ->getUploadedFileNameForStorageUsing(
-                                        function (\Illuminate\Http\UploadedFile $file, \App\Models\OrdenServicio $record) {
-                                            $extension = $file->getClientOriginalExtension();
-                                            $timestamp = uniqid();
-                                            return "evidencia_{$record->folio}_{$timestamp}.{$extension}";
-                                        }
-                                    )
-                                    // Compresión nativa ultra ligera (Intervention Image)
-                                    ->imageResizeMode('cover')
-                                    ->imageResizeTargetWidth(1080)
-                                    ->imageResizeTargetHeight(1080)
-                                    ->required()
-                                    ->columnSpan(2),
+                    // --- BOTÓN PARA EVIDENCIA FOTOGRÁFICA ---
+                    \Filament\Tables\Actions\Action::make('evidencia')
+                        ->label('Fotos')
+                        ->icon('heroicon-o-camera')
+                        ->color('info')
+                        ->modalHeading('Evidencia Fotográfica del Servicio')
+                        ->modalDescription('Sube hasta 5 fotografías.')
+                        ->modalWidth('3xl')
+                        ->fillForm(fn (\App\Models\OrdenServicio $record): array => [
+                            'evidencia_fotografica' => $record->evidencia_fotografica,
+                        ])
+                        ->form([
+                            \Filament\Forms\Components\Repeater::make('evidencia_fotografica')
+                                ->hiddenLabel()
+                                ->schema([
+                                    \Filament\Forms\Components\FileUpload::make('foto')
+                                        ->label('Fotografía')
+                                        ->image()
+                                        ->imageEditor()
+                                        ->disk('s3')
+                                        ->visibility('public')
+                                        ->moveFiles()
+                                        ->directory(fn (\App\Models\OrdenServicio $record) => "evidencia_ordenes/{$record->folio}")
+                                        ->getUploadedFileNameForStorageUsing(
+                                            function (\Illuminate\Http\UploadedFile $file, \App\Models\OrdenServicio $record) {
+                                                $extension = $file->getClientOriginalExtension();
+                                                $timestamp = uniqid();
+                                                return "evidencia_{$record->folio}_{$timestamp}.{$extension}";
+                                            }
+                                        )
+                                        ->imageResizeMode('cover')
+                                        ->imageResizeTargetWidth(1080)
+                                        ->imageResizeTargetHeight(1080)
+                                        ->required()
+                                        ->columnSpan(2),
 
-                                \Filament\Forms\Components\TextInput::make('observacion')
-                                    ->label('Observación (Opcional)')
-                                    ->placeholder('Ej. Banda de tiempo desgastada')
-                                    ->maxLength(255)
-                                    ->columnSpan(2),
-                            ])
-                            ->columns(2)
-                            ->addActionLabel('Añadir Fotografía')
-                            ->maxItems(5)
-                            ->grid(2)
-                            ->columnSpanFull(),
-                    ])
-                    // 2. Guardamos la columna manualmente y limpiamos la basura en S3
-                    ->action(function (\App\Models\OrdenServicio $record, array $data): void {
-                        $viejasEvidencias = $record->evidencia_fotografica ?? [];
-                        $nuevasEvidencias = $data['evidencia_fotografica'] ?? [];
+                                    \Filament\Forms\Components\TextInput::make('observacion')
+                                        ->label('Observación (Opcional)')
+                                        ->placeholder('Ej. Banda de tiempo desgastada')
+                                        ->maxLength(255)
+                                        ->columnSpan(2),
+                                ])
+                                ->columns(2)
+                                ->addActionLabel('Añadir Fotografía')
+                                ->maxItems(5)
+                                ->grid(2)
+                                ->columnSpanFull(),
+                        ])
+                        ->action(function (\App\Models\OrdenServicio $record, array $data): void {
+                            $viejasEvidencias = $record->evidencia_fotografica ?? [];
+                            $nuevasEvidencias = $data['evidencia_fotografica'] ?? [];
 
-                        // Extraemos solo las rutas de los archivos de ambos arreglos
-                        $fotosViejas = collect($viejasEvidencias)->pluck('foto')->filter()->toArray();
-                        $fotosNuevas = collect($nuevasEvidencias)->pluck('foto')->filter()->toArray();
+                            $fotosViejas = collect($viejasEvidencias)->pluck('foto')->filter()->toArray();
+                            $fotosNuevas = collect($nuevasEvidencias)->pluck('foto')->filter()->toArray();
 
-                        // Encontramos cuáles se borraron (están en las viejas pero ya no en las nuevas)
-                        $fotosABorrar = array_diff($fotosViejas, $fotosNuevas);
+                            $fotosABorrar = array_diff($fotosViejas, $fotosNuevas);
 
-                        // Las eliminamos físicamente de AWS S3
-                        if (!empty($fotosABorrar)) {
-                            \Illuminate\Support\Facades\Storage::disk('s3')->delete($fotosABorrar);
-                        }
+                            if (!empty($fotosABorrar)) {
+                                \Illuminate\Support\Facades\Storage::disk('s3')->delete($fotosABorrar);
+                            }
 
-                        // Actualizamos la base de datos con el nuevo arreglo (ya sin el comentario ni la foto)
-                        $record->update([
-                            'evidencia_fotografica' => $nuevasEvidencias,
-                        ]);
+                            $record->update([
+                                'evidencia_fotografica' => $nuevasEvidencias,
+                            ]);
 
-                        \Filament\Notifications\Notification::make()
-                            ->title('Galería actualizada correctamente')
-                            ->success()
-                            ->send();
-                    }),
+                            \Filament\Notifications\Notification::make()
+                                ->title('Galería actualizada correctamente')
+                                ->success()
+                                ->send();
+                        }),
 
+                    // --- BOTÓN DE CAMBIO RÁPIDO DE ESTATUS ---
+                    \Filament\Tables\Actions\Action::make('cambiar_estatus')
+                        ->label('Estatus')
+                        ->icon('heroicon-o-arrow-path')
+                        ->color('warning')
+                        ->modalHeading('Actualizar Estatus del Vehículo')
+                        ->modalWidth('sm')
+                        ->form([
+                            \Filament\Forms\Components\Select::make('estatus')
+                                ->hiddenLabel()
+                                ->options([
+                                    'Ingresado' => 'Ingresado (Paso 1)',
+                                    'En Revisión' => 'En Revisión (Paso 2)',
+                                    'Cotizando' => 'Cotizando (Paso 3)',
+                                    'En Reparación' => 'En Reparación (Paso 4)',
+                                    'Revisión Final' => 'Revisión Final (Paso 5)',
+                                    'Listo' => 'Listo para entrega (Paso 6)',
+                                    'Entregado' => 'Vehículo Entregado (Paso 7)',
+                                ])
+                                ->default(fn (\App\Models\OrdenServicio $record) => $record->estatus)
+                                ->required(),
+                        ])
+                        ->action(function (\App\Models\OrdenServicio $record, array $data): void {
+                            $record->update(['estatus' => $data['estatus']]);
 
-                // --- BOTÓN DE CAMBIO RÁPIDO DE ESTATUS (CON WHATSAPP INTELIGENTE) ---
-                \Filament\Tables\Actions\Action::make('cambiar_estatus')
-                    ->label('Estatus')
-                    ->icon('heroicon-o-arrow-path')
-                    ->color('warning')
-                    ->modalHeading('Actualizar Estatus del Vehículo')
-                    ->modalWidth('sm')
-                    ->form([
-                        \Filament\Forms\Components\Select::make('estatus')
-                            ->hiddenLabel()
-                            ->options([
-                                'Ingresado' => 'Ingresado (Paso 1)',
-                                'En Revisión' => 'En Revisión (Paso 2)',
-                                'Cotizando' => 'Cotizando (Paso 3)',
-                                'En Reparación' => 'En Reparación (Paso 4)',
-                                'Revisión Final' => 'Revisión Final (Paso 5)',
-                                'Listo' => 'Listo para entrega (Paso 6)',
-                                'Entregado' => 'Vehículo Entregado (Paso 7)',
-                            ])
-                            ->default(fn (\App\Models\OrdenServicio $record) => $record->estatus)
-                            ->required(),
-                    ])
-                    ->action(function (\App\Models\OrdenServicio $record, array $data): void {
-                        // 1. Guardamos el nuevo estatus en la BD
-                        $record->update(['estatus' => $data['estatus']]);
+                            $notificacion = \Filament\Notifications\Notification::make()
+                                ->title('Estatus actualizado a: ' . $data['estatus'])
+                                ->success();
 
-                        // 2. Preparamos la notificación base
-                        $notificacion = \Filament\Notifications\Notification::make()
-                            ->title('Estatus actualizado a: ' . $data['estatus'])
-                            ->success();
+                            if ($data['estatus'] === 'Listo') {
+                                $vehiculo = $record->vehiculo;
+                                $cliente = $vehiculo->cliente;
+                                $taller = $record->taller;
 
-                        // 3. MAGIA: Si el estatus es 'Listo', le inyectamos la sugerencia de WhatsApp
-                        if ($data['estatus'] === 'Listo') {
+                                $telefono = preg_replace('/[^0-9]/', '', $cliente->telefono);
+                                if (strlen($telefono) == 10) { $telefono = '52' . $telefono; }
+
+                                $horario = $taller->horario_atencion ?? '-';
+
+                                $nombre = trim($cliente->nombre);
+                                $auto = "{$vehiculo->marca} {$vehiculo->modelo}";
+                                $nombreTaller = $taller ? $taller->nombre_comercial : 'nuestro taller';
+                                $link = route('portal.status', $record->token_url);
+
+                                $mensaje = "¡Hola *{$nombre}*, tenemos excelentes noticias! 👨‍🔧\n\nTu *{$auto}* ya se encuentra *LISTO* para entrega.\n\nPuedes revisar los detalles finales de tu servicio en tu Expediente Digital aquí:\n👉 {$link}\n\n*Recuerda que nuestro horario de atención es: {$horario}.* ¡Te esperamos!";
+
+                                $urlWhatsapp = 'https://api.whatsapp.com/send?phone=' . $telefono . '&text=' . urlencode($mensaje);
+
+                                $notificacion
+                                    ->body('El auto está listo. ¿Deseas avisarle al cliente para que pase por él?')
+                                    ->persistent()
+                                    ->actions([
+                                        \Filament\Notifications\Actions\Action::make('notificar_whatsapp')
+                                            ->label('📲 Avisar por WhatsApp')
+                                            ->button()
+                                            ->color('success')
+                                            ->url($urlWhatsapp)
+                                            ->openUrlInNewTab()
+                                            ->close(),
+
+                                        \Filament\Notifications\Actions\Action::make('cancelar')
+                                            ->label('Más tarde')
+                                            ->color('gray')
+                                            ->close(),
+                                    ]);
+                            }
+
+                            $notificacion->send();
+                        }),
+
+                    // Botón de imprimir
+                    \Filament\Tables\Actions\Action::make('imprimir')
+                        ->label('Imprimir')
+                        ->icon('heroicon-o-printer')
+                        ->color('success')
+                        ->url(fn (\App\Models\OrdenServicio $record) => route('orden.imprimir', $record))
+                        ->openUrlInNewTab(),
+
+                    // EL BOTÓN MÁGICO DE WHATSAPP
+                    \Filament\Tables\Actions\Action::make('whatsapp')
+                        ->label('WhatsApp')
+                        ->icon('heroicon-o-chat-bubble-left-right')
+                        ->color('success')
+                        ->url(function (\App\Models\OrdenServicio $record) {
                             $vehiculo = $record->vehiculo;
                             $cliente = $vehiculo->cliente;
                             $taller = $record->taller;
 
-                            // Formateo del teléfono a 10 dígitos con código de país
                             $telefono = preg_replace('/[^0-9]/', '', $cliente->telefono);
                             if (strlen($telefono) == 10) { $telefono = '52' . $telefono; }
 
-                            $horario = $taller->horario_atencion ?? '-';
-
-                            $nombre = trim($cliente->nombre);
-                            $auto = "{$vehiculo->marca} {$vehiculo->modelo}";
-                            $nombreTaller = $taller ? $taller->nombre_comercial : 'nuestro taller';
                             $link = route('portal.status', $record->token_url);
+                            $nombreTaller = $taller ? $taller->nombre_comercial : 'Autonix';
 
-                            // La plantilla persuasiva
-                            $mensaje = "¡Hola *{$nombre}*, tenemos excelentes noticias! 👨‍🔧\n\nTu *{$auto}* ya se encuentra *LISTO* para entrega.\n\nPuedes revisar los detalles finales de tu servicio en tu Expediente Digital aquí:\n👉 {$link}\n\n*Recuerda que nuestro horario de atención es: {$horario}.* ¡Te esperamos!";
+                            $mensaje = "Hola *{$cliente->nombre}*, bienvenido a *{$nombreTaller}* 👨‍🔧.\n\nHemos recibido tu *{$vehiculo->marca} {$vehiculo->modelo}*.\n\nEn este enlace único podrás ver el *Tracker en tiempo real* de tu servicio, tus inspecciones, cotizaciones y el historial completo de tu auto:\n👉 {$link}\n\nTe notificaremos por aquí cuando haya actualizaciones.";
 
-                            $urlWhatsapp = 'https://api.whatsapp.com/send?phone=' . $telefono . '&text=' . urlencode($mensaje);
+                            return 'https://api.whatsapp.com/send?phone=' . $telefono . '&text=' . urlencode($mensaje);
+                        })
+                        ->openUrlInNewTab(),
 
-                            $notificacion
-                                ->body('El auto está listo. ¿Deseas avisarle al cliente para que pase por él?')
-                                ->persistent() // Evita que la notificación se cierre sola a los 3 segundos
-                                ->actions([
-                                    \Filament\Notifications\Actions\Action::make('notificar_whatsapp')
-                                        ->label('📲 Avisar por WhatsApp')
-                                        ->button()
-                                        ->color('success')
-                                        ->url($urlWhatsapp)
-                                        ->openUrlInNewTab()
-                                        ->close(), // Cierra la notificación después de dar clic
-
-                                    \Filament\Notifications\Actions\Action::make('cancelar')
-                                        ->label('Más tarde')
-                                        ->color('gray')
-                                        ->close(),
-                                ]);
-                        }
-
-                        // 4. Disparamos la notificación final a la pantalla
-                        $notificacion->send();
-                    }),
-                // --- FIN DEL BOTÓN ---
-
-
-                // Botón de imprimir
-                \Filament\Tables\Actions\Action::make('imprimir')
-                    ->label('Imprimir')
-                    ->icon('heroicon-o-printer')
-                    ->color('success')
-                    ->url(fn (\App\Models\OrdenServicio $record) => route('orden.imprimir', $record))
-                    ->openUrlInNewTab(),
-
-                // EL BOTÓN MÁGICO DE WHATSAPP PARA LA RECEPCIÓN
-                \Filament\Tables\Actions\Action::make('whatsapp')
-                    ->label('WhatsApp')
-                    ->icon('heroicon-o-chat-bubble-left-right')
-                    ->color('success')
-                    ->url(function (\App\Models\OrdenServicio $record) {
-                        $vehiculo = $record->vehiculo;
-                        $cliente = $vehiculo->cliente;
-                        $taller = $record->taller;
-
-                        $telefono = preg_replace('/[^0-9]/', '', $cliente->telefono);
-                        if (strlen($telefono) == 10) { $telefono = '52' . $telefono; }
-
-                        $link = route('portal.status', $record->token_url);
-                        $nombreTaller = $taller ? $taller->nombre_comercial : 'Autonix';
-
-                        // Mensaje de bienvenida inicial
-                        $mensaje = "Hola *{$cliente->nombre}*, bienvenido a *{$nombreTaller}* 👨‍🔧.\n\nHemos recibido tu *{$vehiculo->marca} {$vehiculo->modelo}*.\n\nEn este enlace único podrás ver el *Tracker en tiempo real* de tu servicio, tus inspecciones, cotizaciones y el historial completo de tu auto:\n👉 {$link}\n\nTe notificaremos por aquí cuando haya actualizaciones.";
-
-                        return 'https://api.whatsapp.com/send?phone=' . $telefono . '&text=' . urlencode($mensaje);
-                    })
-                    ->openUrlInNewTab(),
+                ])
+                    ->label('Opciones') // Texto que puede aparecer en escritorio
+                    ->icon('heroicon-m-ellipsis-vertical') // El clásico ícono de tres puntos
+                    ->color('primary')
+                    ->button(), // Le da apariencia de botón estructurado
             ]);
     }
 

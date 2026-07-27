@@ -110,7 +110,9 @@ class ClienteResource extends Resource
                 \Filament\Tables\Columns\TextColumn::make('telefono')
                     ->searchable(),
                 \Filament\Tables\Columns\TextColumn::make('correo')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable()
+                    ->visibleFrom('md'), // Colapsa en móviles
                 \Filament\Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -120,7 +122,13 @@ class ClienteResource extends Resource
                 //
             ])
             ->actions([
-                \Filament\Tables\Actions\EditAction::make(),
+                \Filament\Tables\Actions\ActionGroup::make([
+                    \Filament\Tables\Actions\EditAction::make(),
+                ])
+                    ->label('Opciones')
+                    ->icon('heroicon-m-ellipsis-vertical')
+                    ->color('primary')
+                    ->button(),
             ])
             ->bulkActions([
                 \Filament\Tables\Actions\BulkActionGroup::make([

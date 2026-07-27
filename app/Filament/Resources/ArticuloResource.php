@@ -86,7 +86,9 @@ class ArticuloResource extends Resource
                         'Producto' => 'info',
                         'Servicio' => 'success',
                         default => 'gray',
-                    }),
+                    })
+                    ->toggleable()
+                    ->visibleFrom('md'), // Colapsa en móviles
 
                 \Filament\Tables\Columns\TextColumn::make('precio')
                     ->label('Precio Base')
@@ -95,19 +97,26 @@ class ArticuloResource extends Resource
 
                 \Filament\Tables\Columns\IconColumn::make('maneja_stock')
                     ->label('¿Controla Stock?')
-                    ->boolean(),
+                    ->boolean()
+                    ->toggleable()
+                    ->visibleFrom('md'), // Colapsa en móviles
 
                 \Filament\Tables\Columns\TextColumn::make('stock')
                     ->label('Existencias')
                     ->numeric()
                     ->sortable(),
-                // (Ya quitamos la sección fiscal de aquí)
             ])
             ->filters([
                 // Aquí podrías agregar filtros más adelante
             ])
             ->actions([
-                \Filament\Tables\Actions\EditAction::make(),
+                \Filament\Tables\Actions\ActionGroup::make([
+                    \Filament\Tables\Actions\EditAction::make(),
+                ])
+                    ->label('Opciones')
+                    ->icon('heroicon-m-ellipsis-vertical')
+                    ->color('primary')
+                    ->button(),
             ])
             ->bulkActions([
                 \Filament\Tables\Actions\BulkActionGroup::make([

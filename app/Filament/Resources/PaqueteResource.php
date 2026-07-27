@@ -63,8 +63,10 @@ class PaqueteResource extends Resource
 
                 \Filament\Tables\Columns\TextColumn::make('descripcion')
                     ->label('Descripción')
-                    ->limit(50) // Corta el texto si es muy largo
-                    ->searchable(),
+                    ->limit(50)
+                    ->searchable()
+                    ->toggleable()
+                    ->visibleFrom('md'), // Colapsa en móviles
 
                 \Filament\Tables\Columns\TextColumn::make('total_elementos')
                     ->label('Contenido')
@@ -76,8 +78,14 @@ class PaqueteResource extends Resource
                 //
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(), // Agregamos botón rápido para borrar
+                \Filament\Tables\Actions\ActionGroup::make([
+                    Tables\Actions\EditAction::make(),
+                    Tables\Actions\DeleteAction::make(),
+                ])
+                    ->label('Opciones')
+                    ->icon('heroicon-m-ellipsis-vertical')
+                    ->color('primary')
+                    ->button(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

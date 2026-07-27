@@ -213,18 +213,69 @@ class InspeccionResource extends Resource
     {
         return $table
             ->columns([
-                \Filament\Tables\Columns\TextColumn::make('ordenServicio.folio')->label('Folio O.S.')->searchable()->weight('bold'),
-                \Filament\Tables\Columns\TextColumn::make('ordenServicio.vehiculo.placas')->label('Placas')->searchable(),
-                \Filament\Tables\Columns\TextColumn::make('created_at')->label('Fecha Diagnóstico')->dateTime('d/m/Y'),
+                \Filament\Tables\Columns\TextColumn::make('ordenServicio.folio')
+                    ->label('Folio O.S.')
+                    ->searchable()
+                    ->weight('bold')
+                    ->color('primary'),
+
+                \Filament\Tables\Columns\TextColumn::make('ordenServicio.vehiculo.placas')
+                    ->label('Placas')
+                    ->searchable(),
+
+                // Columna que colapsa en móviles para evitar scroll horizontal
+                \Filament\Tables\Columns\TextColumn::make('created_at')
+                    ->label('Fecha Diagnóstico')
+                    ->dateTime('d/m/Y')
+                    ->sortable()
+                    ->toggleable()
+                    ->visibleFrom('md'),
+            ])
+            ->filters([
+                //
             ])
             ->actions([
-                \Filament\Tables\Actions\EditAction::make(),
-                \Filament\Tables\Actions\Action::make('imprimir')
-                    ->label('Reporte PDF')
-                    ->icon('heroicon-o-document-chart-bar')
-                    ->color('danger')
-                    ->url(fn (\App\Models\Inspeccion $record) => route('inspeccion.imprimir', $record))
-                    ->openUrlInNewTab(),
+                // --- EL DROP (MENÚ DESPLEGABLE MINIMALISTA) ---
+                \Filament\Tables\Actions\ActionGroup::make([
+
+                    \Filament\Tables\Actions\EditAction::make(),
+
+                    \Filament\Tables\Actions\Action::make('imprimir')
+                        ->label('Reporte PDF')
+                        ->icon('heroicon-o-document-chart-bar')
+                        ->color('danger')
+                        ->url(fn (\App\Models\Inspeccion $record) => route('inspeccion.imprimir', $record))
+                        ->openUrlInNewTab(),
+
+                    // EL BOTÓN MÁGICO DE WHATSAPP PARA LA INSPECCIÓN
+                    \Filament\Tables\Actions\Action::make('whatsapp')
+                        ->label('WhatsApp')
+                        ->icon('heroicon-o-chat-bubble-left-right')
+                        ->color('success')
+                        ->hidden(fn (\App\Models\Inspeccion $record) => is_null($record->orden_servicio_id))
+                        ->url(function (\App\Models\Inspeccion $record) {
+                            $orden = $record->ordenServicio;
+                            $vehiculo = $orden->vehiculo;
+                            $cliente = $vehiculo->cliente;
+                            $taller = $orden->taller;
+
+                            $telefono = preg_replace('/[^0-9]/', '', $cliente->telefono);
+                            if (strlen($telefono) == 10) { $telefono = '52' . $telefono; }
+
+                            $link = route('portal.status', $orden->token_url);
+                            $nombreTaller = $taller ? $taller->nombre_comercial : 'Autonix';
+
+                            $mensaje = "Hola *{$cliente->nombre}*, de parte de *{$nombreTaller}* 👨‍🔧.\n\nTe compartimos los resultados de la inspección técnica (Checklist de Calidad) de tu *{$vehiculo->marca} {$vehiculo->modelo}*.\n\nPuedes revisar el reporte detallado en tu Expediente Digital:\n👉 {$link}";
+
+                            return 'https://api.whatsapp.com/send?phone=' . $telefono . '&text=' . urlencode($mensaje);
+                        })
+                        ->openUrlInNewTab(),
+
+                ])
+                    ->label('Opciones')
+                    ->icon('heroicon-m-ellipsis-vertical')
+                    ->color('primary')
+                    ->button(),
             ]);
     }
 

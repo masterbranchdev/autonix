@@ -82,17 +82,29 @@ class VehiculoResource extends Resource
                 \Filament\Tables\Columns\TextColumn::make('placas')
                     ->searchable(),
                 \Filament\Tables\Columns\TextColumn::make('marca')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable()
+                    ->visibleFrom('md'), // Colapsa en móviles
                 \Filament\Tables\Columns\TextColumn::make('modelo')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable()
+                    ->visibleFrom('md'), // Colapsa en móviles
                 \Filament\Tables\Columns\TextColumn::make('anio')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable()
+                    ->visibleFrom('md'), // Colapsa en móviles
             ])
             ->filters([
                 //
             ])
             ->actions([
-                \Filament\Tables\Actions\EditAction::make(),
+                \Filament\Tables\Actions\ActionGroup::make([
+                    \Filament\Tables\Actions\EditAction::make(),
+                ])
+                    ->label('Opciones')
+                    ->icon('heroicon-m-ellipsis-vertical')
+                    ->color('primary')
+                    ->button(),
             ])
             ->bulkActions([
                 \Filament\Tables\Actions\BulkActionGroup::make([

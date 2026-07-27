@@ -162,14 +162,32 @@ class CompraResource extends Resource
         return $table
             ->columns([
                 \Filament\Tables\Columns\TextColumn::make('folio')->searchable()->weight('bold'),
-                \Filament\Tables\Columns\TextColumn::make('proveedor')->searchable(),
+
+                \Filament\Tables\Columns\TextColumn::make('proveedor')
+                    ->searchable()
+                    ->toggleable()
+                    ->visibleFrom('md'), // Colapsa en móviles
+
                 \Filament\Tables\Columns\TextColumn::make('fecha')->date('d/m/Y')->sortable(),
-                \Filament\Tables\Columns\IconColumn::make('aplica_iva')->label('Facturado')->boolean(),
+
+                \Filament\Tables\Columns\IconColumn::make('aplica_iva')
+                    ->label('Facturado')
+                    ->boolean()
+                    ->toggleable()
+                    ->visibleFrom('md'), // Colapsa en móviles
+
                 \Filament\Tables\Columns\TextColumn::make('total')->money('MXN')->weight('bold')->color('danger'),
             ])
             ->actions([
-                \Filament\Tables\Actions\EditAction::make(),
-                \Filament\Tables\Actions\ViewAction::make()]);
+                \Filament\Tables\Actions\ActionGroup::make([
+                    \Filament\Tables\Actions\EditAction::make(),
+                    \Filament\Tables\Actions\ViewAction::make(),
+                ])
+                    ->label('Opciones')
+                    ->icon('heroicon-m-ellipsis-vertical')
+                    ->color('primary')
+                    ->button(),
+            ]);
     }
 
     public static function getPages(): array

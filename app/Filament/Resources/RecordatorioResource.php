@@ -100,9 +100,8 @@ class RecordatorioResource extends Resource
                 \Filament\Tables\Columns\TextColumn::make('cliente.nombre')
                     ->label('Cliente')
                     ->searchable()
-                    ->description(function (Recordatorio $record) {
-                        // Calcula las visitas históricas para medir fidelización
-                        $visitas = OrdenServicio::where('vehiculo_id', $record->vehiculo_id)->count();
+                    ->description(function (\App\Models\Recordatorio $record) {
+                        $visitas = \App\Models\OrdenServicio::where('vehiculo_id', $record->vehiculo_id)->count();
                         return "Visitas previas: {$visitas}";
                     }),
 
@@ -110,9 +109,10 @@ class RecordatorioResource extends Resource
                     ->label('Vehículo')
                     ->searchable()
                     ->weight('bold')
-                    // Esto agrega la marca y modelo en texto pequeño debajo de las placas
                     ->description(fn (\App\Models\Recordatorio $record) => "{$record->vehiculo->marca} {$record->vehiculo->modelo}")
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable()
+                    ->visibleFrom('md'), // Colapsa en móviles
 
                 \Filament\Tables\Columns\TextColumn::make('motivo')
                     ->label('Motivo')
@@ -131,7 +131,9 @@ class RecordatorioResource extends Resource
                     ->label('Notas del Seguimiento')
                     ->limit(40)
                     ->color('gray')
-                    ->wrap(),
+                    ->wrap()
+                    ->toggleable()
+                    ->visibleFrom('md'), // Colapsa en móviles
             ])
             ->filters([
                 \Filament\Tables\Filters\Filter::make('esta_semana')
@@ -144,7 +146,6 @@ class RecordatorioResource extends Resource
                     ->query(fn (Builder $query) => $query->whereMonth('fecha_programada', now()->month))
                     ->toggle(),
 
-                // --- NUEVO: FECHADOR PERSONALIZADO (RANGO DE FECHAS) ---
                 \Filament\Tables\Filters\Filter::make('rango_fechas')
                     ->form([
                         \Filament\Forms\Components\DatePicker::make('desde')
@@ -163,7 +164,6 @@ class RecordatorioResource extends Resource
                                 fn (Builder $query, $date): Builder => $query->whereDate('fecha_programada', '<=', $date),
                             );
                     })
-                    // Esto agrega las "etiquetas" (chips) en la parte superior de la tabla indicando el filtro activo
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
                         if ($data['desde'] ?? null) {
@@ -176,104 +176,106 @@ class RecordatorioResource extends Resource
                         }
                         return $indicators;
                     }),
-                // -------------------------------------------------------
             ])
             ->actions([
+                \Filament\Tables\Actions\ActionGroup::make([
 
-                \Filament\Tables\Actions\EditAction::make(),
+                    \Filament\Tables\Actions\EditAction::make(),
 
-                // 1. EL BOTÓN PARA GESTIONAR EL ESTATUS (Se mantiene igual)
-                \Filament\Tables\Actions\Action::make('gestionar')
-                    ->label('Gestionar')
-                    ->icon('heroicon-o-phone-arrow-up-right')
+                    \Filament\Tables\Actions\Action::make('gestionar')
+                        ->label('Gestionar')
+                        ->icon('heroicon-o-phone-arrow-up-right')
+                        ->color('primary')
+                        ->modalHeading('Seguimiento con el Cliente')
+                        ->form([
+                            \Filament\Forms\Components\Select::make('estatus')
+                                ->label('Resultado de la comunicación')
+                                ->options([
+                                    'Contactado' => 'Contactado (Aún no decide)',
+                                    'Cita Agendada' => 'Agendó una Cita',
+                                    'Cancelado' => 'Cancelado (Ya lo hizo en otro lado / Vendió el auto)',
+                                ])
+                                ->default(fn (\App\Models\Recordatorio $record) => $record->estatus)
+                                ->live()
+                                ->required(),
+
+                            \Filament\Forms\Components\DateTimePicker::make('fecha_hora_cita')
+                                ->label('Fecha y Hora de la Cita')
+                                ->visible(fn (\Filament\Forms\Get $get) => $get('estatus') === 'Cita Agendada')
+                                ->required(fn (\Filament\Forms\Get $get) => $get('estatus') === 'Cita Agendada'),
+
+                            \Filament\Forms\Components\Textarea::make('observaciones_seguimiento')
+                                ->label('Observaciones (¿Qué dijo el cliente?)')
+                                ->placeholder('Ej. Tuvo una urgencia en carretera y lo cambió en otro lado...')
+                                ->required(fn (\Filament\Forms\Get $get) => $get('estatus') === 'Cancelado'),
+                        ])
+                        ->action(function (\App\Models\Recordatorio $record, array $data): void {
+                            $record->update($data);
+                        }),
+
+                    \Filament\Tables\Actions\Action::make('whatsapp_invitar')
+                        ->label('WhatsApp')
+                        ->icon('heroicon-o-chat-bubble-left-right')
+                        ->color('success')
+                        ->visible(fn (\App\Models\Recordatorio $record) => in_array($record->estatus, ['Pendiente', 'Contactado']))
+                        ->url(function (\App\Models\Recordatorio $record) {
+                            $cliente = $record->cliente;
+                            $vehiculo = $record->vehiculo;
+                            $taller = $record->taller;
+
+                            $telefono = preg_replace('/[^0-9]/', '', $cliente->telefono);
+                            if (strlen($telefono) == 10) { $telefono = '52' . $telefono; }
+
+                            $nombre = trim($cliente->nombre);
+                            $auto = "{$vehiculo->marca} {$vehiculo->modelo}";
+                            $servicio = $record->motivo;
+
+                            $nombreTaller = $taller->nombre_comercial ?? 'tu taller de confianza';
+                            $domicilio = $taller->domicilio ?? 'nuestras instalaciones';
+
+                            if ($record->nivel_importancia === 'Alta') {
+                                $mensaje = "Hola *{$nombre}* 👨‍🔧. Te escribimos de *{$nombreTaller}*. Revisando el expediente de tu *{$auto}*, notamos que ya es tiempo de realizar su *{$servicio}*. Al ser un tema de vital importancia para tu seguridad, queríamos recordarte agendar una revisión. Te esperamos en *{$domicilio}*. ¿Qué día de esta semana te queda mejor?";
+                            } elseif ($record->nivel_importancia === 'Baja') {
+                                $mensaje = "¡Hola *{$nombre}*! Esperamos que estés teniendo una excelente semana 🚘. Te saludamos de *{$nombreTaller}* para recordarte que a tu *{$auto}* ya le tocaría su *{$servicio}*. Cuando tengas un espacio, avísanos para agendarte y dejarlo al 100% en *{$domicilio}*.";
+                            } else {
+                                $mensaje = "Hola *{$nombre}* 👨‍🔧. En *{$nombreTaller}* llevamos el control de tu *{$auto}* y el sistema nos indica que ya corresponde realizarle: *{$servicio}*. ¿Te gustaría agendar una cita para estos próximos días y mantenerlo en óptimas condiciones? Estamos ubicados en *{$domicilio}*.";
+                            }
+
+                            return 'https://api.whatsapp.com/send?phone=' . $telefono . '&text=' . urlencode($mensaje);
+                        })
+                        ->openUrlInNewTab(),
+
+                    \Filament\Tables\Actions\Action::make('whatsapp_recordatorio')
+                        ->label('Recordar Cita')
+                        ->icon('heroicon-o-device-phone-mobile')
+                        ->color('info')
+                        ->visible(fn (\App\Models\Recordatorio $record) => $record->estatus === 'Cita Agendada')
+                        ->url(function (\App\Models\Recordatorio $record) {
+                            $cliente = $record->cliente;
+                            $taller = $record->taller;
+
+                            $telefono = preg_replace('/[^0-9]/', '', $cliente->telefono);
+                            if (strlen($telefono) == 10) { $telefono = '52' . $telefono; }
+
+                            $nombre = trim($cliente->nombre);
+
+                            $fecha = $record->fecha_hora_cita ? ($record->fecha_hora_cita->isToday() ? 'el día de hoy' : 'el ' . $record->fecha_hora_cita->format('d/m/Y')) : 'pronto';
+                            $hora = $record->fecha_hora_cita ? $record->fecha_hora_cita->format('h:i A') : 'la hora acordada';
+
+                            $nombreTaller = $taller->nombre_comercial ?? 'tu taller de confianza';
+                            $domicilio = $taller->domicilio ?? 'nuestras instalaciones';
+
+                            $mensaje = "¡Hola *{$nombre}*! 👨‍🔧 Te saludamos de *{$nombreTaller}*. Solo pasamos a confirmarte que tenemos todo listo para recibir tu vehículo {$fecha} a las *{$hora}* en *{$domicilio}*. ¡Te esperamos!";
+
+                            return 'https://api.whatsapp.com/send?phone=' . $telefono . '&text=' . urlencode($mensaje);
+                        })
+                        ->openUrlInNewTab(),
+
+                ])
+                    ->label('Opciones')
+                    ->icon('heroicon-m-ellipsis-vertical')
                     ->color('primary')
-                    ->modalHeading('Seguimiento con el Cliente')
-                    ->form([
-                        \Filament\Forms\Components\Select::make('estatus')
-                            ->label('Resultado de la comunicación')
-                            ->options([
-                                'Contactado' => 'Contactado (Aún no decide)',
-                                'Cita Agendada' => 'Agendó una Cita',
-                                'Cancelado' => 'Cancelado (Ya lo hizo en otro lado / Vendió el auto)',
-                            ])
-                            ->default(fn (Recordatorio $record) => $record->estatus)
-                            ->live()
-                            ->required(),
-
-                        \Filament\Forms\Components\DateTimePicker::make('fecha_hora_cita')
-                            ->label('Fecha y Hora de la Cita')
-                            ->visible(fn (\Filament\Forms\Get $get) => $get('estatus') === 'Cita Agendada')
-                            ->required(fn (\Filament\Forms\Get $get) => $get('estatus') === 'Cita Agendada'),
-
-                        \Filament\Forms\Components\Textarea::make('observaciones_seguimiento')
-                            ->label('Observaciones (¿Qué dijo el cliente?)')
-                            ->placeholder('Ej. Tuvo una urgencia en carretera y lo cambió en otro lado...')
-                            ->required(fn (\Filament\Forms\Get $get) => $get('estatus') === 'Cancelado'),
-                    ])
-                    ->action(function (Recordatorio $record, array $data): void {
-                        $record->update($data);
-                    }),
-
-                // 2. BOTÓN DE WHATSAPP: INVITAR A AGENDAR (Solo visible si aún no hay cita)
-                \Filament\Tables\Actions\Action::make('whatsapp_invitar')
-                    ->label('WhatsApp')
-                    ->icon('heroicon-o-chat-bubble-left-right')
-                    ->color('success')
-                    ->visible(fn (Recordatorio $record) => in_array($record->estatus, ['Pendiente', 'Contactado']))
-                    ->url(function (\App\Models\Recordatorio $record) {
-                        $cliente = $record->cliente;
-                        $vehiculo = $record->vehiculo;
-                        $taller = $record->taller;
-
-                        $telefono = preg_replace('/[^0-9]/', '', $cliente->telefono);
-                        if (strlen($telefono) == 10) { $telefono = '52' . $telefono; }
-
-                        $nombre = trim($cliente->nombre);
-                        $auto = "{$vehiculo->marca} {$vehiculo->modelo}";
-                        $servicio = $record->motivo;
-
-                        $nombreTaller = $taller->nombre_comercial ?? 'tu taller de confianza';
-                        $domicilio = $taller->domicilio ?? 'nuestras instalaciones';
-
-                        if ($record->nivel_importancia === 'Alta') {
-                            $mensaje = "Hola *{$nombre}* 👨‍🔧. Te escribimos de *{$nombreTaller}*. Revisando el expediente de tu *{$auto}*, notamos que ya es tiempo de realizar su *{$servicio}*. Al ser un tema de vital importancia para tu seguridad, queríamos recordarte agendar una revisión. Te esperamos en *{$domicilio}*. ¿Qué día de esta semana te queda mejor?";
-                        } elseif ($record->nivel_importancia === 'Baja') {
-                            $mensaje = "¡Hola *{$nombre}*! Esperamos que estés teniendo una excelente semana 🚘. Te saludamos de *{$nombreTaller}* para recordarte que a tu *{$auto}* ya le tocaría su *{$servicio}*. Cuando tengas un espacio, avísanos para agendarte y dejarlo al 100% en *{$domicilio}*.";
-                        } else {
-                            $mensaje = "Hola *{$nombre}* 👨‍🔧. En *{$nombreTaller}* llevamos el control de tu *{$auto}* y el sistema nos indica que ya corresponde realizarle: *{$servicio}*. ¿Te gustaría agendar una cita para estos próximos días y mantenerlo en óptimas condiciones? Estamos ubicados en *{$domicilio}*.";
-                        }
-
-                        return 'https://api.whatsapp.com/send?phone=' . $telefono . '&text=' . urlencode($mensaje);
-                    })
-                    ->openUrlInNewTab(),
-
-                // 3. BOTÓN DE WHATSAPP: RECORDAR CITA (Solo visible si ya tiene cita agendada)
-                \Filament\Tables\Actions\Action::make('whatsapp_recordatorio')
-                    ->label('Recordar Cita')
-                    ->icon('heroicon-o-device-phone-mobile')
-                    ->color('info')
-                    ->visible(fn (Recordatorio $record) => $record->estatus === 'Cita Agendada')
-                    ->url(function (\App\Models\Recordatorio $record) {
-                        $cliente = $record->cliente;
-                        $taller = $record->taller;
-
-                        $telefono = preg_replace('/[^0-9]/', '', $cliente->telefono);
-                        if (strlen($telefono) == 10) { $telefono = '52' . $telefono; }
-
-                        $nombre = trim($cliente->nombre);
-
-                        // Validamos que la fecha exista para que no truene el código
-                        $fecha = $record->fecha_hora_cita ? ($record->fecha_hora_cita->isToday() ? 'el día de hoy' : 'el ' . $record->fecha_hora_cita->format('d/m/Y')) : 'pronto';
-                        $hora = $record->fecha_hora_cita ? $record->fecha_hora_cita->format('h:i A') : 'la hora acordada';
-
-                        $nombreTaller = $taller->nombre_comercial ?? 'tu taller de confianza';
-                        $domicilio = $taller->domicilio ?? 'nuestras instalaciones';
-
-                        $mensaje = "¡Hola *{$nombre}*! 👨‍🔧 Te saludamos de *{$nombreTaller}*. Solo pasamos a confirmarte que tenemos todo listo para recibir tu vehículo {$fecha} a las *{$hora}* en *{$domicilio}*. ¡Te esperamos!";
-
-                        return 'https://api.whatsapp.com/send?phone=' . $telefono . '&text=' . urlencode($mensaje);
-                    })
-                    ->openUrlInNewTab(),
+                    ->button(),
             ]);
     }
 
