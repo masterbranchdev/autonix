@@ -41,7 +41,26 @@ class OrdenServicioResource extends Resource
                     )
                     // AQUI AGREGAMOS EL NOMBRE DEL CLIENTE AL FINAL
                     ->getOptionLabelFromRecordUsing(fn (\App\Models\Vehiculo $record) => trim("{$record->marca} {$record->modelo} " . ($record->placas ? "- Placas: {$record->placas}" : '')) . ($record->cliente ? " - {$record->cliente->nombre}" : ''))
-                    ->searchable(['marca', 'modelo', 'placas'])
+                    ->searchable() // Lo dejamos vacío para que Filament active la cajita de texto
+                    ->getSearchResultsUsing(function (string $search) {
+                        // 1. Limpiamos lo que escribió el usuario (De "Pérez" a "Perez")
+                        $cleanSearch = \Illuminate\Support\Str::ascii($search);
+
+                        // 2. Hacemos la búsqueda manual con el texto limpio
+                        return \App\Models\Vehiculo::with('cliente')
+                            ->where('marca', 'ilike', "%{$cleanSearch}%")
+                            ->orWhere('modelo', 'ilike', "%{$cleanSearch}%")
+                            ->orWhere('placas', 'ilike', "%{$cleanSearch}%")
+                            ->orWhereHas('cliente', fn ($q) => $q->where('nombre', 'ilike', "%{$cleanSearch}%"))
+                            ->latest('id')
+                            ->limit(50)
+                            ->get()
+                            // 3. Formateamos el resultado
+                            ->mapWithKeys(fn ($record) => [
+                                $record->id => trim("{$record->marca} {$record->modelo} " . ($record->placas ? "- Placas: {$record->placas}" : '')) . ($record->cliente ? " - {$record->cliente->nombre}" : '')
+                            ])
+                            ->toArray();
+                    })
                     ->preload()
                     ->live() // Hace que el formulario reaccione al elegir un auto
                     ->afterStateUpdated(function (callable $set, $state) {

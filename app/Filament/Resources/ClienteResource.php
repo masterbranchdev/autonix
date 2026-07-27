@@ -33,7 +33,9 @@ class ClienteResource extends Resource
 
                 \Filament\Forms\Components\TextInput::make('nombre')
                     ->required()
-                    ->maxLength(255),
+                    ->maxLength(255)
+                    // Esta función intercepta el texto antes de guardarlo y le quita todos los acentos
+                    ->dehydrateStateUsing(fn ($state) => \Illuminate\Support\Str::ascii($state)),
 
                 \Filament\Forms\Components\TextInput::make('telefono')
                     ->tel()
