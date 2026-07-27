@@ -28,7 +28,6 @@ class PaqueteResource extends Resource
         return $form
             ->schema([
                 //
-                \Filament\Forms\Components\Hidden::make('taller_id')->default(auth()->user()->taller_id),
                 \Filament\Forms\Components\TextInput::make('nombre')->label('Nombre del Paquete (Ej. Servicio Menor)')->required()->columnSpanFull(),
                 \Filament\Forms\Components\Textarea::make('descripcion')->label('Descripción')->columnSpanFull(),
 

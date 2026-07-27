@@ -109,10 +109,16 @@
     <tbody>
     @forelse($cotizacion->items as $item)
         <tr>
-            <td class="text-center">{{ $item->cantidad }}</td>
-            <td>{{ $item->descripcion }}</td>
-            <td class="text-right">${{ number_format($item->precio_unitario, 2) }}</td>
-            <td class="text-right">${{ number_format($item->subtotal, 2) }}</td>
+            <td class="text-center" style="vertical-align: top;">{{ $item->cantidad }}</td>
+            <td>
+                {{ $item->descripcion }}
+                <!-- MAGIA VISUAL: Si hay observación, la imprime debajo del concepto en letra pequeña, cursiva y gris -->
+                @if($item->observaciones)
+                    <br><span style="font-size: 9px; color: #6b7280; font-style: italic;">{{ $item->observaciones }}</span>
+                @endif
+            </td>
+            <td class="text-right" style="vertical-align: top;">${{ number_format($item->precio_unitario, 2) }}</td>
+            <td class="text-right" style="vertical-align: top;">${{ number_format($item->subtotal, 2) }}</td>
         </tr>
     @empty
         <tr><td colspan="4" class="text-center">No hay conceptos registrados.</td></tr>
@@ -140,6 +146,10 @@
         <div class="total-row">
             <span>I.V.A.:</span>
             <span>${{ number_format($cotizacion->iva, 2) }}</span>
+        </div>
+        <div class="total-row">
+            <span>I.S.R.:</span>
+            <span>${{ number_format($cotizacion->retencion_isr, 2) }}</span>
         </div>
         <div class="total-row grand-total">
             <span>TOTAL:</span>

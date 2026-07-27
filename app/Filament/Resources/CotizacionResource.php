@@ -39,7 +39,6 @@ class CotizacionResource extends Resource
             }
         }
 
-        // Seguro para evitar que den un descuento mayor al costo de las piezas
         if ($descuento > $subtotal) {
             $descuento = $subtotal;
             if ($isInsideRepeater) {
@@ -51,16 +50,10 @@ class CotizacionResource extends Resource
 
         $subtotalConDescuento = $subtotal - $descuento;
 
-        // 1. Calculamos el IVA (16% sumado)
         $iva = $aplicarIva ? $subtotalConDescuento * 0.16 : 0;
-
-        // 2. Calculamos la Retención ISR (1.25% restado)
         $retencionIsr = $aplicarIsr ? $subtotalConDescuento * 0.0125 : 0;
-
-        // 3. Gran Total
         $total = $subtotalConDescuento + $iva - $retencionIsr;
 
-        // Actualizamos los campos visuales
         if ($isInsideRepeater) {
             $set('../../subtotal', number_format($subtotal, 2, '.', ''));
             $set('../../iva', number_format($iva, 2, '.', ''));
@@ -158,6 +151,7 @@ class CotizacionResource extends Resource
                                             $itemsActuales[(string) str()->uuid()] = [
                                                 'articulo_id' => $articulo->id,
                                                 'descripcion' => $articulo->nombre,
+                                                'observaciones' => null, // Inicializamos el campo vacío
                                                 'cantidad' => $itemPaquete['cantidad'],
                                                 'precio_unitario' => $itemPaquete['precio_especial'],
                                                 'subtotal' => number_format(floatval($itemPaquete['cantidad']) * floatval($itemPaquete['precio_especial']), 2, '.', ''),
@@ -188,8 +182,6 @@ class CotizacionResource extends Resource
                                 \Filament\Forms\Components\Select::make('articulo_id')
                                     ->label('Buscar Catálogo')
                                     ->options(fn () => \App\Models\Articulo::where('taller_id', auth()->user()->taller_id)
-                                        ->where('tipo', 'Producto')
-                                        ->where('maneja_stock', true)
                                         ->pluck('nombre', 'id'))
                                     ->searchable()
                                     ->live()
@@ -207,7 +199,7 @@ class CotizacionResource extends Resource
                                     ->columnSpan(2),
 
                                 \Filament\Forms\Components\TextInput::make('descripcion')
-                                    ->label('Concepto (Manual)')
+                                    ->label('Concepto (Manual/SAT)')
                                     ->required()
                                     ->columnSpan(2),
 
@@ -240,8 +232,17 @@ class CotizacionResource extends Resource
                                     ->prefix('$')
                                     ->readOnly()
                                     ->columnSpan(1),
+
+                                // --- EL CAMPO DE OBSERVACIONES REUBICADO DEBAJO ---
+                                \Filament\Forms\Components\TextInput::make('observaciones')
+                                    ->hiddenLabel() // Ocultamos el label para mantener el minimalismo
+                                    ->placeholder('Observaciones o detalles de la refacción (Ej. Para Ford Ranger 2015)...')
+                                    ->maxLength(255)
+                                    // Inyectamos CSS directo para hacer el campo más estrecho y simular el tamaño "sm"
+                                    ->extraInputAttributes(['style' => 'font-size: 0.85rem; padding-top: 0.35rem; padding-bottom: 0.35rem;'])
+                                    ->columnSpanFull(),
                             ])
-                            ->columns(7)
+                            ->columns(7) // Regresamos a 7 columnas para que la fila principal encaje matemáticamente perfecta
                             ->live(onBlur: true)
                             ->afterStateUpdated(fn (Get $get, Set $set) => self::updateTotals($get, $set))
                             ->addActionLabel('Agregar Fila Manual')
