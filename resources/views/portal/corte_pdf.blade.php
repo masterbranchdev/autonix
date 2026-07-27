@@ -97,42 +97,50 @@
 </div>
 
 <!-- 3. DETALLE DE MOVIMIENTOS -->
-<h3 style="font-size: 12px; margin-bottom: 5px;">Desglose de Movimientos</h3>
-<table class="details">
-    <thead>
-    <tr>
-        <th style="width: 12%;">FECHA</th>
-        <th style="width: 8%;">TIPO</th>
-        <th style="width: 32%;">CONCEPTO / DESCRIPCIÓN</th>
-        <th style="width: 12%;">MÉTODO</th>
-        <th style="width: 13%;">REFERENCIA</th>
-        <th style="width: 8%; text-align: center;">FACTURA</th> <th style="width: 15%; text-align:right;">MONTO</th>
-    </tr>
-    </thead>
-    <tbody>
-    @foreach($transacciones as $t)
-        <tr class="{{ $t->tipo == 'Ingreso' ? 'row-ingreso' : 'row-egreso' }}">
-            <td>{{ date('d/m/Y', strtotime($t->fecha)) }}</td>
-            <td class="{{ $t->tipo == 'Ingreso' ? 'text-green' : 'text-red' }}"><strong>{{ $t->tipo }}</strong></td>
-            <td>{{ $t->concepto }}</td>
-            <td>{{ $t->metodo_pago }}</td>
-            <td style="font-size: 8px; color: #475569;">{{ $t->referencia ?: 'N/A' }}</td>
-
-            <td style="text-align: center; font-size: 9px;">
-                @if($t->requiere_factura)
-                    <span style="color: #16a34a; font-weight: bold;">SÍ</span>
-                @else
-                    <span style="color: #94a3b8;">NO</span>
-                @endif
-            </td>
-
-            <td style="text-align:right; font-weight:bold; font-size: 10px;">
-                {{ $t->tipo == 'Ingreso' ? '+' : '-' }}${{ number_format($t->monto, 2) }}
-            </td>
+    <h3 style="font-size: 12px; margin-bottom: 5px;">Desglose de Movimientos</h3>
+    <table class="details">
+        <thead>
+        <tr>
+            <th style="width: 10%;">FECHA</th>
+            <th style="width: 8%;">TIPO</th>
+            <th style="width: 30%;">CONCEPTO / DESCRIPCIÓN</th>
+            <th style="width: 12%;">MÉTODO</th>
+            <th style="width: 13%;">REFERENCIA</th>
+            <th style="width: 12%; text-align: center;">FACTURACIÓN</th>
+            <th style="width: 15%; text-align:right;">MONTO</th>
         </tr>
-    @endforeach
-    </tbody>
-</table>
+        </thead>
+        <tbody>
+        @foreach($transacciones as $t)
+            <tr class="{{ $t->tipo == 'Ingreso' ? 'row-ingreso' : 'row-egreso' }}">
+                <td>{{ date('d/m/Y', strtotime($t->fecha)) }}</td>
+                <td class="{{ $t->tipo == 'Ingreso' ? 'text-green' : 'text-red' }}"><strong>{{ $t->tipo }}</strong></td>
+                <td>{{ $t->concepto }}</td>
+                <td>{{ $t->metodo_pago }}</td>
+                <td style="font-size: 8px; color: #475569;">{{ $t->referencia ?: 'N/A' }}</td>
+
+                <td style="text-align: center; font-size: 9px;">
+                    {{-- Lógica Fiscal: Comprobamos primero si pidió factura y luego su estatus real --}}
+                    @if($t->requiere_factura)
+                        @if($t->estado_factura === 'Timbrada')
+                            <span style="color: #16a34a; font-weight: bold;">TIMBRADA</span>
+                        @elseif($t->estado_factura === 'Cancelada')
+                            <span style="color: #dc2626; font-weight: bold;">CANCELADA</span>
+                        @else
+                            <span style="color: #d97706; font-weight: bold;">PENDIENTE</span>
+                        @endif
+                    @else
+                        <span style="color: #94a3b8;">NO REQ.</span>
+                    @endif
+                </td>
+
+                <td style="text-align:right; font-weight:bold; font-size: 10px;">
+                    {{ $t->tipo == 'Ingreso' ? '+' : '-' }}${{ number_format($t->monto, 2) }}
+                </td>
+            </tr>
+        @endforeach
+        </tbody>
+    </table>
 
 <div style="margin-top: 30px; text-align: center; font-size: 9px; color: #94a3b8;">
     Reporte generado el {{ now()->format('d/m/Y h:i A') }}

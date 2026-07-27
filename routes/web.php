@@ -96,8 +96,10 @@ Route::get('/status/{token}/inspeccion-pdf', function ($token) {
 // RUTA PARA EXPORTAR CORTE DE CAJA (PDF O EXCEL)
 Route::get('/finanzas/corte', function (Request $request) {
     $tallerId = auth()->user()->taller_id;
-    $inicio = $request->inicio;
-    $fin = $request->fin;
+
+    // Recibimos los parámetros exactos que envía el modal de Filament
+    $inicio = $request->desde;
+    $fin = $request->hasta;
     $formato = $request->formato;
 
     // Obtenemos las transacciones del periodo
@@ -118,12 +120,11 @@ Route::get('/finanzas/corte', function (Request $request) {
             // Truco maestro: Agregar BOM UTF-8 para que Excel lea los acentos y "ñ" perfectamente
             fputs($file, "\xEF\xBB\xBF");
 
-            // 1. Añadimos 'Factura' a los encabezados
-            fputcsv($file, ['Fecha', 'Tipo', 'Concepto', 'Metodo de Pago', 'Referencia', 'Factura', 'Monto']);
+            // Añadimos 'Estatus Factura' a los encabezados
+            fputcsv($file, ['Fecha', 'Tipo', 'Concepto', 'Metodo de Pago', 'Referencia', 'Requiere Factura', 'Estatus Factura', 'Monto']);
 
             // Filas
             foreach ($transacciones as $t) {
-                // Parseo ultra-seguro
                 $fechaSegura = \Carbon\Carbon::parse($t->fecha)->format('Y-m-d');
 
                 fputcsv($file, [
@@ -132,7 +133,8 @@ Route::get('/finanzas/corte', function (Request $request) {
                     $t->concepto,
                     $t->metodo_pago,
                     $t->referencia ?? 'N/A',
-                    $t->requiere_factura ? 'SÍ' : 'NO', // <--- 2. Traducimos el booleano a texto
+                    $t->requiere_factura ? 'SÍ' : 'NO',
+                    $t->estado_factura ?? 'No Facturado', // Agregamos el estatus fiscal a Excel
                     $t->monto
                 ]);
             }
@@ -145,7 +147,8 @@ Route::get('/finanzas/corte', function (Request $request) {
     $pdf = Pdf::loadView('portal.corte_pdf', compact('transacciones', 'ingresos', 'egresos', 'balance', 'inicio', 'fin', 'taller'));
     return $pdf->download("Corte_Ejecutivo_{$inicio}.pdf");
 
-})->name('finanzas.corte')->middleware('auth');
+// ACTUALIZAMOS EL NOMBRE PARA QUE HAGA MATCH CON FILAMENT
+})->name('transacciones.exportar')->middleware('auth');
 
 // -----------------------------
 

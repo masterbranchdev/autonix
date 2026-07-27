@@ -138,7 +138,46 @@ class TransaccionResource extends Resource
                     ]),
             ])
             ->headerActions([
-                // Mantenido intacto de tu archivo original
+                // --- RECUPERAMOS EL MODAL DE CORTE DE CAJA ---
+                \Filament\Tables\Actions\Action::make('exportar_corte')
+                    ->label('Corte de Caja (Exportar)')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('success')
+                    ->modalHeading('Generar Corte de Caja')
+                    ->modalDescription('Selecciona el periodo para calcular y exportar los ingresos y egresos.')
+                    ->modalSubmitActionLabel('Descargar Reporte')
+                    ->form([
+                        \Filament\Forms\Components\Grid::make(2)->schema([
+                            \Filament\Forms\Components\DatePicker::make('desde')
+                                ->label('Desde la fecha:')
+                                ->default(now()->startOfMonth()) // Sugiere el primer día del mes actual
+                                ->required(),
+
+                            \Filament\Forms\Components\DatePicker::make('hasta')
+                                ->label('Hasta la fecha:')
+                                ->default(now()->endOfMonth()) // Sugiere el último día del mes actual
+                                ->required(),
+                        ]),
+
+                        \Filament\Forms\Components\Select::make('formato')
+                            ->label('Formato de descarga')
+                            ->options([
+                                'pdf' => 'Documento PDF (.pdf)',
+                                'excel' => 'Hoja de Cálculo (.xlsx)'
+                            ])
+                            ->default('pdf')
+                            ->required(),
+                    ])
+                    ->action(function (array $data) {
+                        // Aquí pasamos las fechas y el formato a tu controlador de exportación
+                        // NOTA: Asegúrate de que el nombre de la ruta ('transacciones.exportar')
+                        // coincida con el nombre que tienes declarado en tu archivo web.php
+                        return redirect()->route('transacciones.exportar', [
+                            'desde' => $data['desde'],
+                            'hasta' => $data['hasta'],
+                            'formato' => $data['formato'],
+                        ]);
+                    }),
             ])
             ->actions([
                 \Filament\Tables\Actions\ActionGroup::make([
