@@ -11,18 +11,17 @@ use Filament\Forms\Set;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Carbon\Carbon;
 
 class CompraResource extends Resource
 {
     protected static ?string $model = Compra::class;
 
-    // ESTO ACOMODA EL MENÚ
     protected static ?string $navigationLabel = 'Compras / Entradas';
     protected static ?string $navigationGroup = 'Administración';
     protected static ?string $navigationIcon = 'heroicon-o-shopping-bag';
     protected static ?int $navigationSort = 2;
 
-    // MOTOR MATEMÁTICO DE COMPRAS
     public static function updateTotals(Get $get, Set $set): void
     {
         $items = $get('items') ?? [];
@@ -54,22 +53,48 @@ class CompraResource extends Resource
                             ->label('Nombre del Proveedor (Ej. AutoZone, Refaccionaria)')
                             ->required()
                             ->columnSpan(2),
+
                         \Filament\Forms\Components\TextInput::make('numero_factura')
                             ->label('No. Factura o Ticket')
                             ->placeholder('Ej. F-98765')
                             ->maxLength(50)
-                            ->columnSpan(1),
-                        \Filament\Forms\Components\DatePicker::make('fecha')
-                            ->label('Fecha de Compra')
-                            ->default(now())
-                            ->required()
-                            ->columnSpan(1),
+                            ->columnSpan(2),
+
                         \Filament\Forms\Components\TextInput::make('folio')
                             ->placeholder('Autogenerado')
                             ->disabled()
                             ->dehydrated(false)
-                            ->columnSpan(1),
-                    ])->columns(5),
+                            ->columnSpan(2),
+
+                        \Filament\Forms\Components\DatePicker::make('fecha')
+                            ->label('Fecha de Compra')
+                            ->default(now())
+                            ->required()
+                            ->columnSpan(2),
+
+                        // --- INICIO NUEVOS CAMPOS DE CRÉDITO ---
+                        \Filament\Forms\Components\Select::make('estado_pago')
+                            ->label('Condición de Pago')
+                            ->options([
+                                'Pagado' => 'Pagado (Al contado)',
+                                'Crédito' => 'A Crédito (Pendiente)',
+                            ])
+                            ->default('Pagado')
+                            ->live()
+                            ->required()
+                            ->columnSpan(2),
+
+                        \Filament\Forms\Components\TextInput::make('dias_credito')
+                            ->label('Días de Crédito')
+                            ->numeric()
+                            ->suffix('días')
+                            ->placeholder('Ej. 15')
+                            ->visible(fn (Get $get) => $get('estado_pago') === 'Crédito')
+                            ->required(fn (Get $get) => $get('estado_pago') === 'Crédito')
+                            ->columnSpan(2),
+                        // --- FIN NUEVOS CAMPOS DE CRÉDITO ---
+
+                    ])->columns(6), // Usamos 6 columnas para que 3 campos de tamaño 2 entren por fila
 
                 \Filament\Forms\Components\Section::make('Artículos Comprados')
                     ->description('Al guardar, estas piezas se sumarán automáticamente a tu inventario.')
@@ -161,27 +186,76 @@ class CompraResource extends Resource
     {
         return $table
             ->columns([
-                \Filament\Tables\Columns\TextColumn::make('folio')->searchable()->weight('bold'),
+                \Filament\Tables\Columns\TextColumn::make('folio')
+                    ->searchable()
+                    ->weight('bold'),
 
                 \Filament\Tables\Columns\TextColumn::make('proveedor')
                     ->searchable()
                     ->toggleable()
-                    ->visibleFrom('md'), // Colapsa en móviles
+                    ->visibleFrom('md'),
 
-                \Filament\Tables\Columns\TextColumn::make('fecha')->date('d/m/Y')->sortable(),
+                \Filament\Tables\Columns\TextColumn::make('fecha')
+                    ->date('d/m/Y')
+                    ->sortable(),
 
-                \Filament\Tables\Columns\IconColumn::make('aplica_iva')
-                    ->label('Facturado')
-                    ->boolean()
+                // INDICADOR DE PAGO
+                \Filament\Tables\Columns\BadgeColumn::make('estado_pago')
+                    ->label('Pago')
+                    ->colors([
+                        'success' => 'Pagado',
+                        'warning' => 'Crédito',
+                    ]),
+
+                // CÁLCULO DE VENCIMIENTO
+                \Filament\Tables\Columns\TextColumn::make('vencimiento')
+                    ->label('Vencimiento')
+                    ->getStateUsing(function (Compra $record) {
+                        if ($record->estado_pago === 'Crédito' && $record->dias_credito) {
+                            return Carbon::parse($record->fecha)->addDays($record->dias_credito)->format('d/m/Y');
+                        }
+                        return '-';
+                    })
+                    ->color(function (Compra $record) {
+                        if ($record->estado_pago === 'Crédito' && $record->dias_credito) {
+                            $vencimiento = Carbon::parse($record->fecha)->addDays($record->dias_credito);
+                            return $vencimiento->isPast() ? 'danger' : 'warning';
+                        }
+                        return 'gray';
+                    })
+                    ->weight(fn (Compra $record) => $record->estado_pago === 'Crédito' ? 'bold' : 'normal')
                     ->toggleable()
-                    ->visibleFrom('md'), // Colapsa en móviles
+                    ->visibleFrom('md'),
 
-                \Filament\Tables\Columns\TextColumn::make('total')->money('MXN')->weight('bold')->color('danger'),
+                \Filament\Tables\Columns\TextColumn::make('total')
+                    ->money('MXN')
+                    ->weight('bold')
+                    ->color('danger'),
             ])
             ->actions([
                 \Filament\Tables\Actions\ActionGroup::make([
+
                     \Filament\Tables\Actions\EditAction::make(),
                     \Filament\Tables\Actions\ViewAction::make(),
+
+                    // ACCIÓN RÁPIDA PARA MARCAR COMO PAGADO
+                    \Filament\Tables\Actions\Action::make('marcar_pagado')
+                        ->label('Marcar Pagado')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->visible(fn (Compra $record) => $record->estado_pago === 'Crédito')
+                        ->requiresConfirmation()
+                        ->modalHeading('Confirmar Pago a Proveedor')
+                        ->modalDescription('¿Confirmas que esta compra a crédito ya fue liquidada al proveedor?')
+                        ->modalSubmitActionLabel('Sí, marcar como pagado')
+                        ->action(function (Compra $record) {
+                            $record->update(['estado_pago' => 'Pagado']);
+                            \Filament\Notifications\Notification::make()
+                                ->title('Compra marcada como pagada')
+                                ->success()
+                                ->send();
+                        }),
+
                 ])
                     ->label('Opciones')
                     ->icon('heroicon-m-ellipsis-vertical')
