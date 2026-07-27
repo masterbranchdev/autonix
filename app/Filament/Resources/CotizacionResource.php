@@ -22,8 +22,6 @@ class CotizacionResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-document-currency-dollar';
     protected static ?int $navigationSort = 2;
 
-
-
     // --- EL CEREBRO DE LAS MATEMÁTICAS EN TIEMPO REAL ---
     public static function updateTotals(Get $get, Set $set): void
     {
@@ -31,6 +29,7 @@ class CotizacionResource extends Resource
 
         $items = $isInsideRepeater ? $get('../../items') : $get('items');
         $aplicarIva = $isInsideRepeater ? $get('../../aplicar_iva') : $get('aplicar_iva');
+        $aplicarIsr = $isInsideRepeater ? $get('../../aplicar_retencion_isr') : $get('aplicar_retencion_isr');
         $descuento = floatval($isInsideRepeater ? $get('../../descuento') : $get('descuento'));
 
         $subtotal = 0;
@@ -50,19 +49,27 @@ class CotizacionResource extends Resource
             }
         }
 
-        // El IVA se calcula sobre el Subtotal YA CON EL DESCUENTO aplicado
         $subtotalConDescuento = $subtotal - $descuento;
+
+        // 1. Calculamos el IVA (16% sumado)
         $iva = $aplicarIva ? $subtotalConDescuento * 0.16 : 0;
-        $total = $subtotalConDescuento + $iva;
+
+        // 2. Calculamos la Retención ISR (1.25% restado)
+        $retencionIsr = $aplicarIsr ? $subtotalConDescuento * 0.0125 : 0;
+
+        // 3. Gran Total
+        $total = $subtotalConDescuento + $iva - $retencionIsr;
 
         // Actualizamos los campos visuales
         if ($isInsideRepeater) {
             $set('../../subtotal', number_format($subtotal, 2, '.', ''));
             $set('../../iva', number_format($iva, 2, '.', ''));
+            $set('../../retencion_isr', number_format($retencionIsr, 2, '.', ''));
             $set('../../total', number_format($total, 2, '.', ''));
         } else {
             $set('subtotal', number_format($subtotal, 2, '.', ''));
             $set('iva', number_format($iva, 2, '.', ''));
+            $set('retencion_isr', number_format($retencionIsr, 2, '.', ''));
             $set('total', number_format($total, 2, '.', ''));
         }
     }
@@ -82,17 +89,12 @@ class CotizacionResource extends Resource
                             ->relationship(
                                 name: 'ordenServicio',
                                 titleAttribute: 'folio',
-                                // Cargamos el vehículo y su dueño para que no sea lento
                                 modifyQueryUsing: fn (\Illuminate\Database\Eloquent\Builder $query) => $query->with('vehiculo.cliente')->latest('id')
                             )
-                            // AQUI AGREGAMOS EL NOMBRE DEL CLIENTE AL FINAL
                             ->getOptionLabelFromRecordUsing(fn (\App\Models\OrdenServicio $record) => "Folio: {$record->folio} - " . ($record->vehiculo ? $record->vehiculo->placas : 'Sin placas') . ($record->vehiculo && $record->vehiculo->cliente ? " - {$record->vehiculo->cliente->nombre}" : ''))
-                            ->searchable() // Lo dejamos vacío para que Filament active la cajita de texto
+                            ->searchable()
                             ->getSearchResultsUsing(function (string $search) {
-                                // 1. Limpiamos lo que escribió el usuario (De "Pérez" a "Perez")
                                 $cleanSearch = \Illuminate\Support\Str::ascii($search);
-
-                                // 2. Hacemos la búsqueda manual con el texto limpio
                                 return \App\Models\OrdenServicio::with('vehiculo.cliente')
                                     ->where('folio', 'ilike', "%{$cleanSearch}%")
                                     ->orWhereHas('vehiculo', function ($q) use ($cleanSearch) {
@@ -102,7 +104,6 @@ class CotizacionResource extends Resource
                                     ->latest('id')
                                     ->limit(50)
                                     ->get()
-                                    // 3. Formateamos el resultado para que se vea bonito en el select
                                     ->mapWithKeys(fn ($record) => [
                                         $record->id => "Folio: {$record->folio} - " . ($record->vehiculo ? $record->vehiculo->placas : 'Sin placas') . ($record->vehiculo && $record->vehiculo->cliente ? " - {$record->vehiculo->cliente->nombre}" : '')
                                     ])
@@ -133,7 +134,6 @@ class CotizacionResource extends Resource
                 \Filament\Forms\Components\Section::make('Conceptos (Refacciones y Mano de Obra)')
                     ->schema([
 
-                        // 3. EL BOTÓN MÁGICO PARA CARGAR PAQUETES (Componente independiente arriba del repetidor)
                         \Filament\Forms\Components\Actions::make([
                             \Filament\Forms\Components\Actions\Action::make('cargar_paquete')
                                 ->label('Cargar Paquete Prearmado')
@@ -155,7 +155,6 @@ class CotizacionResource extends Resource
                                     foreach ($paquete->items as $itemPaquete) {
                                         $articulo = \App\Models\Articulo::find($itemPaquete['articulo_id']);
                                         if ($articulo) {
-                                            // Insertamos las filas del paquete como nuevas filas
                                             $itemsActuales[(string) str()->uuid()] = [
                                                 'articulo_id' => $articulo->id,
                                                 'descripcion' => $articulo->nombre,
@@ -168,25 +167,26 @@ class CotizacionResource extends Resource
 
                                     $set('items', $itemsActuales);
 
-                                    // Forzamos la actualización matemática del total general
                                     $subtotal = 0;
                                     foreach ($itemsActuales as $item) {
                                         $subtotal += floatval($item['cantidad'] ?? 0) * floatval($item['precio_unitario'] ?? 0);
                                     }
+
                                     $iva = $get('aplicar_iva') ? $subtotal * 0.16 : 0;
+                                    $retencionIsr = $get('aplicar_retencion_isr') ? $subtotal * 0.0125 : 0;
+
                                     $set('subtotal', number_format($subtotal, 2, '.', ''));
                                     $set('iva', number_format($iva, 2, '.', ''));
-                                    $set('total', number_format($subtotal + $iva, 2, '.', ''));
+                                    $set('retencion_isr', number_format($retencionIsr, 2, '.', ''));
+                                    $set('total', number_format($subtotal + $iva - $retencionIsr, 2, '.', ''));
                                 })
                         ]),
 
                         \Filament\Forms\Components\Repeater::make('items')
                             ->relationship()
                             ->schema([
-                                // 1. BUSCADOR DE CATÁLOGO (Auto-llena los datos y guarda el ID)
                                 \Filament\Forms\Components\Select::make('articulo_id')
                                     ->label('Buscar Catálogo')
-                                    // Filtramos para que solo muestre Productos que controlan stock
                                     ->options(fn () => \App\Models\Articulo::where('taller_id', auth()->user()->taller_id)
                                         ->where('tipo', 'Producto')
                                         ->where('maneja_stock', true)
@@ -206,7 +206,6 @@ class CotizacionResource extends Resource
                                     })
                                     ->columnSpan(2),
 
-                                // 2. LOS CAMPOS NORMALES
                                 \Filament\Forms\Components\TextInput::make('descripcion')
                                     ->label('Concepto (Manual)')
                                     ->required()
@@ -242,7 +241,7 @@ class CotizacionResource extends Resource
                                     ->readOnly()
                                     ->columnSpan(1),
                             ])
-                            ->columns(7) // Expandimos las columnas
+                            ->columns(7)
                             ->live(onBlur: true)
                             ->afterStateUpdated(fn (Get $get, Set $set) => self::updateTotals($get, $set))
                             ->addActionLabel('Agregar Fila Manual')
@@ -257,29 +256,36 @@ class CotizacionResource extends Resource
                             ->rows(4)
                             ->columnSpan(2),
 
-                        \Filament\Forms\Components\Grid::make(1)
+                        \Filament\Forms\Components\Grid::make(2)
                             ->schema([
-                                // BOTÓN MÁGICO DEL IVA
                                 \Filament\Forms\Components\Toggle::make('aplicar_iva')
-                                    ->label('Aplicar IVA (16%)')
+                                    ->label('Aplicar IVA')
                                     ->live()
                                     ->dehydrated(false)
                                     ->formatStateUsing(fn ($record) => $record ? $record->iva > 0 : false)
                                     ->afterStateUpdated(fn (Get $get, Set $set) => self::updateTotals($get, $set)),
 
+                                \Filament\Forms\Components\Toggle::make('aplicar_retencion_isr')
+                                    ->label('Retención ISR')
+                                    ->live()
+                                    ->dehydrated(false)
+                                    ->formatStateUsing(fn ($record) => $record ? $record->retencion_isr > 0 : false)
+                                    ->afterStateUpdated(fn (Get $get, Set $set) => self::updateTotals($get, $set)),
+
                                 \Filament\Forms\Components\TextInput::make('subtotal')
                                     ->numeric()
                                     ->prefix('$')
-                                    ->readOnly(),
+                                    ->readOnly()
+                                    ->columnSpanFull(),
 
-                                // NUEVO CAMPO DE DESCUENTO
                                 \Filament\Forms\Components\TextInput::make('descuento')
                                     ->label('Descuento (Moneda)')
                                     ->numeric()
                                     ->prefix('-$')
                                     ->default(0)
                                     ->live(onBlur: true)
-                                    ->afterStateUpdated(fn (Get $get, Set $set) => self::updateTotals($get, $set)),
+                                    ->afterStateUpdated(fn (Get $get, Set $set) => self::updateTotals($get, $set))
+                                    ->columnSpanFull(),
 
                                 \Filament\Forms\Components\TextInput::make('iva')
                                     ->label('I.V.A.')
@@ -287,11 +293,18 @@ class CotizacionResource extends Resource
                                     ->prefix('$')
                                     ->readOnly(),
 
+                                \Filament\Forms\Components\TextInput::make('retencion_isr')
+                                    ->label('Retención ISR')
+                                    ->numeric()
+                                    ->prefix('-$')
+                                    ->readOnly(),
+
                                 \Filament\Forms\Components\TextInput::make('total')
                                     ->numeric()
                                     ->prefix('$')
                                     ->readOnly()
-                                    ->extraInputAttributes(['style' => 'font-weight: bold; font-size: 1.2rem; color: #16a34a;']),
+                                    ->extraInputAttributes(['style' => 'font-weight: bold; font-size: 1.2rem; color: #16a34a;'])
+                                    ->columnSpanFull(),
                             ])
                             ->columnSpan(2),
                     ])->columns(4),
@@ -329,7 +342,6 @@ class CotizacionResource extends Resource
                     ->money('mxn')
                     ->weight('bold'),
 
-                // Columnas que colapsan en móviles para mantener limpieza visual
                 \Filament\Tables\Columns\TextColumn::make('folio')
                     ->searchable()
                     ->weight('bold')
@@ -361,7 +373,6 @@ class CotizacionResource extends Resource
                 //
             ])
             ->actions([
-                // --- EL DROP (MENÚ DESPLEGABLE MINIMALISTA) ---
                 \Filament\Tables\Actions\ActionGroup::make([
 
                     \Filament\Tables\Actions\EditAction::make(),
