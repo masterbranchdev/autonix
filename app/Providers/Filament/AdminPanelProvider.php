@@ -32,6 +32,17 @@ class AdminPanelProvider extends PanelProvider
             ->colors([
                 'primary' => Color::Amber,
             ])
+            // --- INICIO DE TU BRANDING AUTONIX ---
+            ->favicon(asset('img/autonix_logo_solo.png'))
+
+            ->brandLogo(fn () => request()->routeIs('filament.*.auth.login')
+                ? asset('img/autonix_logo.png')
+                : asset('img/autonix_horizontal.png')
+            )
+
+            // AUMENTAMOS EL DEL LOGIN (8rem) Y REDUCIMOS EL DEL MENÚ (2rem)
+            ->brandLogoHeight(fn () => request()->routeIs('filament.*.auth.login') ? '8rem' : '1.5rem')
+            // --- FIN DE TU BRANDING ---
             ->navigationGroups([
                 'Directorio',
                 'Operación del Taller',
