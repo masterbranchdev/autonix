@@ -438,10 +438,25 @@ class CotizacionResource extends Resource
                                 ->required(fn (\Filament\Forms\Get $get) => in_array($get('metodo_pago'), ['Tarjeta de Débito', 'Tarjeta de Crédito', 'Transferencia SPEI']))
                                 ->visible(fn (\Filament\Forms\Get $get) => in_array($get('metodo_pago'), ['Tarjeta de Débito', 'Tarjeta de Crédito', 'Transferencia SPEI'])),
 
-                            \Filament\Forms\Components\Toggle::make('requiere_factura')
-                                ->label('El cliente solicita Factura (CFDI)')
-                                ->inline(false)
-                                ->onColor('success'),
+                            // --- NUEVO: CUADRO DE ADVERTENCIA PARA IMPUESTOS ---
+                            \Filament\Forms\Components\Placeholder::make('alerta_impuestos')
+                                ->hiddenLabel()
+                                ->content(new \Illuminate\Support\HtmlString('
+                                    <div style="background-color: #fef2f2; border-left: 4px solid #dc2626; color: #991b1b; padding: 12px; border-radius: 4px;">
+                                        <strong>⚠️ Facturación</strong><br>
+                                        Debido a que esta cotización incluye impuestos (IVA / Retención ISR), se marcará la solicitud de factura en Caja y Finanzas.
+                                    </div>
+                                '))
+                                ->visible(fn (\App\Models\Cotizacion $record) => $record->iva > 0 || $record->retencion_isr > 0)
+                                ->columnSpanFull(),
+//
+//                            // --- TOGGLE TRADICIONAL (Solo visible si NO hay impuestos) ---
+//                            \Filament\Forms\Components\Toggle::make('requiere_factura')
+//                                ->label('El cliente solicita Factura (CFDI)')
+//                                ->inline(false)
+//                                ->onColor('success')
+//                                ->visible(fn (\App\Models\Cotizacion $record) => $record->iva <= 0 && $record->retencion_isr <= 0)
+//                                ->columnSpanFull(),
                         ])
                         ->action(function (\App\Models\Cotizacion $record, array $data) {
                             $transaccionPrevia = \App\Models\Transaccion::where('taller_id', $record->taller_id)
@@ -457,6 +472,9 @@ class CotizacionResource extends Resource
                                 return;
                             }
 
+                            // 1. Evaluamos de forma 100% segura por backend si requiere factura
+                            $debeFacturar = ($record->iva > 0 || $record->retencion_isr > 0) ? true : ($data['requiere_factura'] ?? false);
+
                             \App\Models\Transaccion::create([
                                 'taller_id' => $record->taller_id,
                                 'cotizacion_id' => $record->id,
@@ -465,7 +483,8 @@ class CotizacionResource extends Resource
                                 'monto' => $record->total,
                                 'metodo_pago' => $data['metodo_pago'],
                                 'referencia' => $data['referencia'] ?? null,
-                                'requiere_factura' => $data['requiere_factura'],
+                                // 2. Guardamos el valor calculado
+                                'requiere_factura' => $debeFacturar,
                                 'fecha' => now(),
                             ]);
 

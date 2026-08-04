@@ -262,10 +262,10 @@ class TransaccionResource extends Resource
                             }
 
                             $cotizacion = $record->cotizacion;
-                            $cliente = $cotizacion->ordenServicio->vehiculo->cliente ?? null;
+                            $cliente = $cotizacion ? ($cotizacion->ordenServicio->vehiculo->cliente ?? null) : null;
 
                             if (!$cliente || empty($cliente->rfc)) {
-                                \Filament\Notifications\Notification::make()->title('Datos incompletos')->danger()->send();
+                                \Filament\Notifications\Notification::make()->title('Datos incompletos')->body('El cliente no tiene RFC registrado.')->danger()->send();
                                 return;
                             }
 
@@ -275,27 +275,55 @@ class TransaccionResource extends Resource
                             $rfcReceptor = strtoupper(trim($cliente->rfc));
                             $usoCfdi = $rfcReceptor === 'XAXX010101000' ? 'S01' : $data['uso_cfdi'];
 
+                            // --- LÓGICA FINANCIERA DE PRECISIÓN ---
                             $conceptos = [];
+                            $descuentoGlobal = (float) $cotizacion->descuento;
+                            $subtotalGlobal = (float) $cotizacion->subtotal;
+
+                            // Obtenemos el porcentaje de descuento global para aplicarlo por partida
+                            $ratioDescuento = $subtotalGlobal > 0 ? ($descuentoGlobal / $subtotalGlobal) : 0;
+
                             foreach ($cotizacion->items as $index => $item) {
                                 $claveSat = $item->articulo->clave_sat ?? '81141601';
                                 $unidadSat = $item->articulo->unidad_sat ?? 'E48';
 
+                                $precioUnitarioBase = (float) $item->precio_unitario; // Subtotal estrictamente sin IVA
+                                $cantidad = (float) $item->cantidad;
+
+                                // Calculamos el descuento proporcional para este concepto
+                                $descuentoItem = ($precioUnitarioBase * $cantidad) * $ratioDescuento;
+
+                                // Armamos los impuestos dinámicamente según la cotización
+                                $impuestos = [];
+
+                                if ($cotizacion->iva > 0) {
+                                    $impuestos[] = [
+                                        'taxCode' => '002', // IVA
+                                        'taxTypeCode' => 'Tasa',
+                                        'taxRate' => '0.160000',
+                                        'taxFlagCode' => 'T' // Traslado (Se suma)
+                                    ];
+                                }
+
+                                if ($cotizacion->retencion_isr > 0) {
+                                    $impuestos[] = [
+                                        'taxCode' => '001', // ISR
+                                        'taxTypeCode' => 'Tasa',
+                                        'taxRate' => '0.012500',
+                                        'taxFlagCode' => 'R' // Retención (Se resta)
+                                    ];
+                                }
+
                                 $conceptos[] = [
                                     'itemCode' => $claveSat,
-                                    'quantity' => (float) $item->cantidad,
+                                    'quantity' => $cantidad,
                                     'unitOfMeasurementCode' => $unidadSat,
                                     'description' => $item->descripcion,
-                                    'unitPrice' => (float) $item->precio_unitario,
-                                    'taxObjectCode' => '02',
+                                    'unitPrice' => $precioUnitarioBase, // Factura toma el subtotal
+                                    'discount' => round($descuentoItem, 2), // Aplica el descuento SAT
+                                    'taxObjectCode' => count($impuestos) > 0 ? '02' : '01', // 02: Sí objeto de impuesto, 01: No objeto
                                     'itemSku' => 'ART-' . ($item->articulo_id ?? $index + 1),
-                                    'itemTaxes' => [
-                                        [
-                                            'taxCode' => '002',
-                                            'taxTypeCode' => 'Tasa',
-                                            'taxRate' => '0.160000',
-                                            'taxFlagCode' => 'T'
-                                        ]
-                                    ]
+                                    'itemTaxes' => $impuestos
                                 ];
                             }
 
@@ -317,7 +345,10 @@ class TransaccionResource extends Resource
                                     }
                                 }
 
-                                if (!$issuerId) return;
+                                if (!$issuerId) {
+                                    \Filament\Notifications\Notification::make()->title('Emisor no encontrado en Fiscal API')->danger()->send();
+                                    return;
+                                }
 
                                 $response = \Illuminate\Support\Facades\Http::acceptJson()
                                     ->withHeaders([
