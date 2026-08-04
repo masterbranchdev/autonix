@@ -67,5 +67,8 @@ class OrdenServicio extends Model
         return $this->hasMany(Inspeccion::class);
     }
 
+    public function mecanicos() {
+        return $this->belongsToMany(Mecanico::class, 'mecanico_orden_servicio');
+    }
 
 }

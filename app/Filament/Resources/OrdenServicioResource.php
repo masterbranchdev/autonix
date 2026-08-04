@@ -167,6 +167,18 @@ class OrdenServicioResource extends Resource
                     ->default(fn () => now())
                     ->required(),
 
+                \Filament\Forms\Components\Select::make('mecanicos')
+                    ->label('Mecánico(s) Asignado(s)')
+                    ->relationship(
+                        name: 'mecanicos',
+                        titleAttribute: 'nombre',
+                        modifyQueryUsing: fn (\Illuminate\Database\Eloquent\Builder $query) => $query->where('taller_id', auth()->user()->taller_id)->where('activo', true)
+                    )
+                    ->multiple() // Permite seleccionar varios o dejarlo en blanco
+                    ->preload()
+                    ->searchable()
+                    ->columnSpanFull(),
+
                 // --- INICIO DEL NUEVO SELECTOR DE ESTATUS ---
                 \Filament\Forms\Components\Select::make('estatus')
                     ->label('Estatus del Vehículo')
