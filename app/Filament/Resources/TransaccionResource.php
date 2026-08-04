@@ -218,11 +218,111 @@ class TransaccionResource extends Resource
                         ->url(fn (\App\Models\Transaccion $record) => route('descargar.factura.xml', $record->id))
                         ->openUrlInNewTab(),
 
+                    // --- NUEVO: BOTÓN DE CANCELACIÓN DE FACTURA ---
+                    // --- BOTÓN DE CANCELACIÓN DE FACTURA (CORREGIDO) ---
+                    // --- BOTÓN DE CANCELACIÓN DE FACTURA (Basado en Docs de Fiscal API) ---
+                    // --- BOTÓN DE CANCELACIÓN DE FACTURA (JSON STRICT MODE) ---
+                    \Filament\Tables\Actions\Action::make('cancelar_factura')
+                        ->label('Cancelar CFDI')
+                        ->icon('heroicon-o-x-circle')
+                        ->color('danger')
+                        ->visible(fn (\App\Models\Transaccion $record) => $record->estado_factura === 'Timbrada' && !empty($record->factura_id))
+                        ->modalHeading('Cancelar Factura ante el SAT')
+                        ->modalDescription('Seleccione el motivo de cancelación. Una vez aceptado por el SAT, el estatus cambiará y podrá volver a timbrar si es necesario.')
+                        ->modalSubmitActionLabel('Sí, Cancelar Factura')
+                        ->form([
+                            \Filament\Forms\Components\Select::make('motivo')
+                                ->label('Motivo de Cancelación')
+                                ->options([
+                                    '02' => '02 - Comprobante emitido con errores sin relación (Permite corregir y refacturar)',
+                                    '03' => '03 - No se llevó a cabo la operación (El cliente canceló el servicio)',
+                                ])
+                                ->default('02')
+                                ->required(),
+                        ])
+                        ->action(function (\App\Models\Transaccion $record, array $data) {
+                            $taller = $record->taller;
+                            $apiKey = $taller->facturacion_produccion ? $taller->facturapi_key_live : $taller->facturapi_key_test;
+                            $tenantKey = $taller->facturacion_produccion ? $taller->fiscalapi_tenant_live : $taller->fiscalapi_tenant_test;
+                            $baseUrl = $taller->facturacion_produccion ? 'https://live.fiscalapi.com' : 'https://test.fiscalapi.com';
+
+                            $facturaId = trim($record->factura_id);
+                            $motivo = trim($data['motivo']);
+
+                            try {
+                                // La URL debe ser exactamente esta, sin parámetros al final
+                                $url = "{$baseUrl}/api/v4/invoices";
+
+                                $response = \Illuminate\Support\Facades\Http::acceptJson()
+                                    ->asJson() // Fuerza el Content-Type: application/json (Evita el error 415)
+                                    ->withHeaders([
+                                        'X-API-KEY' => $apiKey,
+                                        'X-TENANT-KEY' => $tenantKey,
+                                    ])
+                                    // Enviamos el DELETE con el cuerpo JSON exacto que pide la documentación
+                                    ->delete($url, [
+                                        'id' => $facturaId,
+                                        'cancellationReasonCode' => $motivo
+                                    ]);
+
+                                if ($response->successful() && $response->json('succeeded') === true) {
+
+                                    $invoiceUuids = $response->json('data.invoiceUuids') ?? [];
+                                    $codigoSat = !empty($invoiceUuids) ? reset($invoiceUuids) : null;
+
+                                    $record->update([
+                                        'estado_factura' => 'Cancelada',
+                                    ]);
+
+                                    $mensaje = 'La factura ha sido cancelada en el sistema.';
+                                    if ($codigoSat) {
+                                        $mensaje .= " (Código SAT: {$codigoSat})";
+                                    }
+
+                                    \Filament\Notifications\Notification::make()
+                                        ->title('Cancelación Exitosa')
+                                        ->body($mensaje)
+                                        ->success()
+                                        ->send();
+                                } else {
+                                    $statusCode = $response->status();
+                                    $errorData = $response->json();
+
+                                    $mensajeReal = "HTTP {$statusCode} - ";
+
+                                    if (is_array($errorData)) {
+                                        $mensajeReal .= $errorData['message'] ?? $errorData['error'] ?? 'Validación rechazada';
+
+                                        if (isset($errorData['details']) && !empty($errorData['details'])) {
+                                            $mensajeReal .= ' | Detalles: ' . (is_string($errorData['details']) ? $errorData['details'] : json_encode($errorData['details']));
+                                        }
+                                    } else {
+                                        $mensajeReal .= "Respuesta del servidor: " . substr($response->body(), 0, 250);
+                                    }
+
+                                    \Filament\Notifications\Notification::make()
+                                        ->title('El SAT o la API rechazó la cancelación')
+                                        ->body($mensajeReal)
+                                        ->danger()
+                                        ->persistent()
+                                        ->send();
+                                }
+                            } catch (\Exception $e) {
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Error de conexión')
+                                    ->body($e->getMessage())
+                                    ->danger()
+                                    ->send();
+                            }
+                        }),
+
+                    // --- ACTUALIZADO: AHORA PERMITE TIMBRAR SI ESTÁ "CANCELADA" ---
                     \Filament\Tables\Actions\Action::make('timbrar_factura')
-                        ->label('Timbrar')
+                        ->label(fn (\App\Models\Transaccion $record) => $record->estado_factura === 'Cancelada' ? 'Refacturar' : 'Timbrar')
                         ->icon('heroicon-o-bolt')
                         ->color('warning')
-                        ->visible(fn (\App\Models\Transaccion $record) => $record->tipo === 'Ingreso' && $record->requiere_factura && $record->estado_factura === 'No Facturado')
+                        // Habilitamos visibilidad tanto para pendientes como para canceladas
+                        ->visible(fn (\App\Models\Transaccion $record) => $record->tipo === 'Ingreso' && $record->requiere_factura && in_array($record->estado_factura, ['No Facturado', 'Cancelada']))
                         ->modalHeading('Timbrar CFDI 4.0')
                         ->modalSubmitActionLabel('Sí, Timbrar Factura')
                         ->form([
