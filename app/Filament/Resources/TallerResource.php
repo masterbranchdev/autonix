@@ -22,11 +22,10 @@ class TallerResource extends Resource
     protected static ?string $pluralModelLabel = 'Talleres Clientes';
     protected static ?string $navigationIcon = 'heroicon-o-server-stack';
 
-    // CANDADO MAESTRO: Solo el super administrador de Autonix puede ver esto
+// CANDADO MAESTRO: Solo el super administrador de Autonix puede ver esto
     public static function canAccess(): bool
     {
-        // Cambia esto por tu correo real o el rol que uses para ti mismo
-        return auth()->user()->email === 'admin@autonix.com.mx';
+        return auth()->user()->hasRole('super_admin');
     }
 
     public static function form(Form $form): Form
@@ -276,7 +275,7 @@ class TallerResource extends Resource
                     ->date('d M Y')
                     ->sortable()
                     // Magia: Le pone un texto rojo debajo si ya se venció
-                    ->description(fn (Taller $record) => $record->vencimiento_suscripcion && \Carbon\Carbon::parse($record->vencimiento_suscripcion)->isPast() ? '¡VENCIDO!' : ''),
+                    ->description(fn (Taller $record) => $record->vencimiento_suscripcion && \Carbon\Carbon::parse($record->vencimiento_suscripcion)->endOfDay()->isPast() ? '¡VENCIDO!' : ''),
 
                 // EL INDICADOR DEL KILL SWITCH
                 Tables\Columns\IconColumn::make('activo')

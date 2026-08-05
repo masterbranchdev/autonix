@@ -15,7 +15,7 @@ class AutonixStatsWidget extends BaseWidget
     // EL CANDADO MAESTRO: Solo tú puedes ver estas métricas financieras
     public static function canView(): bool
     {
-        return auth()->user()->email === 'admin@autonix.com.mx';
+        return auth()->user()->hasRole('super_admin');
     }
 
     protected function getStats(): array

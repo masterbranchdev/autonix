@@ -15,9 +15,10 @@ class TalleresChartWidget extends ChartWidget
     protected static ?int $sort = 2;
 
     // EL CANDADO MAESTRO
+// EL CANDADO MAESTRO
     public static function canView(): bool
     {
-        return auth()->user()->email === 'admin@autonix.com.mx';
+        return auth()->user()->hasRole('super_admin');
     }
 
     protected function getData(): array

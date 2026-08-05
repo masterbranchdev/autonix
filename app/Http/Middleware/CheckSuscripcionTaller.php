@@ -10,12 +10,12 @@ class CheckSuscripcionTaller
 {
     public function handle(Request $request, Closure $next)
     {
-        // 1. Verificamos si el usuario está logueado
+// 1. Verificamos si el usuario está logueado
         if (Auth::check()) {
             $user = Auth::user();
 
-            // 2. EXCEPCIÓN MAESTRA: Solo tú (CEO Autonix) eres inmune a los bloqueos de taller.
-            if ($user->email === 'admin@autonix.com.mx') {
+            // 2. EXCEPCIÓN MAESTRA: Los Super Admins son inmunes a los bloqueos de taller.
+            if ($user->hasRole('super_admin')) {
                 return $next($request);
             }
 

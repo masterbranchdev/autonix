@@ -23,13 +23,13 @@ class UserResource extends Resource
     protected static ?string $pluralModelLabel = 'Usuarios';
     protected static ?int $navigationSort = 2;
 
-    // Filtra la tabla para que los usuarios normales solo vean a los empleados de su propio taller
+// Filtra la tabla para que los usuarios normales solo vean a los empleados de su propio taller
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
 
-        // Validamos con tu correo maestro para evitar fallos si el rol 'super_admin' no existe
-        if (auth()->user()->email !== 'admin@autonix.com.mx') {
+        // Validamos con tu rol maestro
+        if (!auth()->user()->hasRole('super_admin')) {
             $query->where('taller_id', auth()->user()->taller_id);
         }
 

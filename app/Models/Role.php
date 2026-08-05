@@ -11,7 +11,7 @@ class Role extends SpatieRole
     {
         // 1. FILTRO DE LECTURA (Ignoramos al SuperAdmin)
         static::addGlobalScope('taller', function (Builder $builder) {
-            if (auth()->check() && auth()->user()->taller_id && auth()->user()->email !== 'admin@autonix.com.mx') {
+            if (auth()->check() && auth()->user()->taller_id && !auth()->user()->hasRole('super_admin')) {
                 $builder->where('taller_id', auth()->user()->taller_id);
             }
         });

@@ -58,7 +58,7 @@ class RoleResource extends BaseRoleResource
                     ignoreRecord: true,
                     modifyRuleUsing: function (\Illuminate\Validation\Rules\Unique $rule) {
                         // Si eres el SuperAdmin, no te restringimos. Si eres un Taller, filtramos por tu ID.
-                        $tallerId = auth()->user()->email === 'admin@autonix.com.mx'
+                        $tallerId = auth()->user()->hasRole('super_admin')
                             ? null
                             : auth()->user()->taller_id;
 
