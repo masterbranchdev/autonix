@@ -51,7 +51,7 @@
 <button class="no-print" onclick="window.print()" style="margin-bottom: 10px; padding: 8px 15px; background: #000; color: #fff; border: none; cursor: pointer;">🖨️ Imprimir Reporte</button>
 
 @php
-    $taller = $inspeccion->taller ?? auth()->user()->taller;
+    $taller = $inspeccion->taller ?? $inspeccion->ordenServicio->taller;
     $logoBase64 = null;
     if($taller && $taller->logo_path) {
         try {
@@ -68,9 +68,9 @@
         @if($logoBase64)
             <img src="{{ $logoBase64 }}" style="max-height: 35px;">
             <br>
-            <h2>{{ auth()->user()->taller->nombre_comercial }}</h2>
+            <h2>{{ $taller->nombre_comercial ?? 'TALLER' }}</h2>
         @else
-            <h2>{{ auth()->user()->taller->nombre_comercial }}</h2>
+            <h2>{{ $taller->nombre_comercial ?? 'TALLER' }}</h2>
         @endif
     </div>
     <div class="title-box">
@@ -221,7 +221,7 @@
         <div style="width: 40%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; min-height: 50px;">
             <div style="width: 100%; border-top: 1px solid #333; padding-top: 4px; font-weight: bold; font-size: 9px;">
                 ASESOR DE SERVICIO<br>
-                <span style="font-weight: normal; color: #4b5563;">{{ auth()->user()->name ?? 'Asesor' }}</span>
+                <span style="font-weight: normal; color: #4b5563;">{{ auth()->check() ? auth()->user()->name : 'Asesor de Servicio' }}</span>
             </div>
         </div>
 
