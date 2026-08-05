@@ -10,30 +10,38 @@ class CheckSuscripcionTaller
 {
     public function handle(Request $request, Closure $next)
     {
-        // 1. Verificamos si el usuario está logueado[cite: 14]
+        // 1. Verificamos si el usuario está logueado
         if (Auth::check()) {
             $user = Auth::user();
 
-            // 2. EXCEPCIÓN MAESTRA (CORREGIDA): Solo tú (CEO Autonix) eres inmune a los bloqueos de taller.
+            // 2. EXCEPCIÓN MAESTRA: Solo tú (CEO Autonix) eres inmune a los bloqueos de taller.
             if ($user->email === 'admin@autonix.com.mx') {
                 return $next($request);
             }
 
-            // 3. Verificamos si el taller del usuario está inactivo (apagado)[cite: 14]
             $taller = $user->taller;
-            if ($taller && $taller->activo == false) {
 
-                // Lo expulsamos (cerramos su sesión)[cite: 14]
-                Auth::logout();
+            if ($taller) {
+                // 3. Verificamos si el taller del usuario está inactivo (suspendido manualmente)
+                if ($taller->activo == false) {
+                    Auth::logout();
+                    return redirect(filament()->getLoginUrl())->withErrors([
+                        'email' => 'El acceso a tu taller ha sido suspendido. Por favor, contacta a soporte de Autonix.',
+                    ]);
+                }
 
-                // Redirigimos a la pantalla de login con un mensaje de error[cite: 14]
-                return redirect(filament()->getLoginUrl())->withErrors([
-                    'email' => 'El acceso a tu taller ha sido suspendido. Por favor, contacta a soporte de Autonix.',
-                ]);
+                // 4. Verificamos si la suscripción está vencida (por fecha)
+                // Asumimos que la columna en tu base de datos se llama 'vencimiento_suscripcion'
+                if ($taller->vencimiento_suscripcion && now()->startOfDay()->greaterThan($taller->vencimiento_suscripcion)) {
+                    Auth::logout();
+                    return redirect(filament()->getLoginUrl())->withErrors([
+                        'email' => 'Tu suscripción ha vencido. Te invitamos a realizar el pago para renovar tu plan y seguir disfrutando de Autonix.',
+                    ]);
+                }
             }
         }
 
-        // Si todo está en orden, lo dejamos pasar a la pantalla que solicitó[cite: 14]
+        // Si todo está en orden, lo dejamos pasar a la pantalla que solicitó
         return $next($request);
     }
 }
