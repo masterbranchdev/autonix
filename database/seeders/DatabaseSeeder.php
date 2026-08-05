@@ -24,7 +24,7 @@ class DatabaseSeeder extends Seeder
             'taller_id' => $taller->id,
             'name' => 'CEO Autonix',
             'email' => 'admin@autonix.com.mx', // ESTA SERÁ NUESTRA LLAVE MAESTRA[cite: 14]
-            'password' => Hash::make('password'),
+            'password' => Hash::make('P8p65ccX'),
             // Eliminamos la línea 'rol' => 'admin' porque Filament usa una tabla separada[cite: 14]
         ]);
 

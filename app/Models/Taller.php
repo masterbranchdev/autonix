@@ -9,6 +9,10 @@ class Taller extends Model
 {
     use HasFactory;
 
+    protected $casts = [
+        'fecha_vencimiento' => 'datetime',
+    ];
+
     protected $fillable = [
         'nombre_comercial',
         'plan',
@@ -39,6 +43,8 @@ class Taller extends Model
         'fiscalapi_tenant_test',
         'fiscalapi_tenant_live',
     ];
+
+
 
     // 1. Le decimos el nombre exacto de la tabla en español
     protected $table = 'talleres';
