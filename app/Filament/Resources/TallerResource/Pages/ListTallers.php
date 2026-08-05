@@ -17,4 +17,16 @@ class ListTallers extends ListRecords
             \App\Filament\Widgets\TalleresChartWidget::class,
         ];
     }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            // Este es el botón maestro que te abre el formulario de creación
+            Actions\CreateAction::make()
+                ->label('Nuevo Taller')
+                ->icon('heroicon-o-plus')
+                ->color('primary'),
+        ];
+    }
+
 }

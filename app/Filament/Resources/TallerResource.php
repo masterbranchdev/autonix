@@ -39,6 +39,12 @@ class TallerResource extends Resource
                         Forms\Components\TextInput::make('nombre_comercial')
                             ->required()
                             ->maxLength(255)
+                            // --- CANDADO DE SEGURIDAD SAAS ---
+                            // Bloquea cualquier intento de usar "autonix" (sin importar mayúsculas o minúsculas)
+                            ->notRegex('/autonix/i')
+                            ->validationMessages([
+                                'not_regex' => 'Por seguridad del sistema SaaS, el nombre del taller no puede contener la palabra "Autonix".',
+                            ])
                             ->columnSpan(2),
 
                         Forms\Components\TextInput::make('telefono')
@@ -183,28 +189,28 @@ class TallerResource extends Resource
                     ])->columns(2),
 
                 // --- NUEVA SECCIÓN: CONFIGURACIÓN DE FISCALAPI ---
-                \Filament\Forms\Components\Section::make('Configuración de Facturación (CFDI 4.0)')
-                    ->description('Ingresa tus credenciales de Facturapi para habilitar el timbrado de facturas desde Autonix.')
-                    ->icon('heroicon-o-building-office')
-                    ->schema([
-                        \Filament\Forms\Components\TextInput::make('facturapi_key_test')
-                            ->label('API Key (Modo Pruebas / Test)')
-                            ->password() // Ocultamos la llave por seguridad
-                            ->revealable()
-                            ->columnSpan(1),
-
-                        \Filament\Forms\Components\TextInput::make('facturapi_key_live')
-                            ->label('API Key (Modo Producción / Live)')
-                            ->password()
-                            ->revealable()
-                            ->columnSpan(1),
-
-                        \Filament\Forms\Components\Toggle::make('facturacion_produccion')
-                            ->label('Habilitar Modo Producción (Facturas Reales)')
-                            ->helperText('¡Atención! Al activar esto, las facturas tendrán validez fiscal ante el SAT.')
-                            ->onColor('danger') // Color rojo para advertir que es en serio
-                            ->columnSpanFull(),
-                    ])->columns(2),
+//                \Filament\Forms\Components\Section::make('Configuración de Facturación (CFDI 4.0)')
+//                    ->description('Ingresa tus credenciales de Facturapi para habilitar el timbrado de facturas desde Autonix.')
+//                    ->icon('heroicon-o-building-office')
+//                    ->schema([
+//                        \Filament\Forms\Components\TextInput::make('facturapi_key_test')
+//                            ->label('API Key (Modo Pruebas / Test)')
+//                            ->password() // Ocultamos la llave por seguridad
+//                            ->revealable()
+//                            ->columnSpan(1),
+//
+//                        \Filament\Forms\Components\TextInput::make('facturapi_key_live')
+//                            ->label('API Key (Modo Producción / Live)')
+//                            ->password()
+//                            ->revealable()
+//                            ->columnSpan(1),
+//
+//                        \Filament\Forms\Components\Toggle::make('facturacion_produccion')
+//                            ->label('Habilitar Modo Producción (Facturas Reales)')
+//                            ->helperText('¡Atención! Al activar esto, las facturas tendrán validez fiscal ante el SAT.')
+//                            ->onColor('danger') // Color rojo para advertir que es en serio
+//                            ->columnSpanFull(),
+//                    ])->columns(2),
 
                 \Filament\Forms\Components\Section::make('Credenciales de Facturación (Fiscal API)')
                     ->icon('heroicon-o-key')
@@ -258,6 +264,13 @@ class TallerResource extends Resource
                     ])
                     ->searchable(),
 
+                // --- NUEVA COLUMNA: CLIENTE DESDE ---
+                Tables\Columns\TextColumn::make('fecha_suscripcion')
+                    ->label('Cliente desde')
+                    ->date('d M Y')
+                    ->sortable()
+                    ->toggleable(),
+
                 Tables\Columns\TextColumn::make('vencimiento_suscripcion')
                     ->label('Vencimiento')
                     ->date('d M Y')
@@ -277,6 +290,10 @@ class TallerResource extends Resource
                 Tables\Columns\TextColumn::make('telefono')
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            // --- NUEVO: ORDENAMIENTO POR DEFECTO ---
+            // 'desc' mostrará los talleres más recientes primero.
+            // Si prefieres ver a los más antiguos primero, cambia 'desc' por 'asc'.
+            ->defaultSort('fecha_suscripcion', 'desc')
             ->filters([
                 Tables\Filters\TernaryFilter::make('activo')
                     ->label('Estado de Acceso')
@@ -286,6 +303,49 @@ class TallerResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+
+                // --- BOTÓN: REGENERAR ACCESOS ---
+                Tables\Actions\Action::make('regenerar_accesos')
+                    ->label('Regenerar Accesos')
+                    ->icon('heroicon-o-key')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->modalHeading('Regenerar Contraseña de Administrador')
+                    ->modalDescription('Como las contraseñas están encriptadas por seguridad, no es posible ver la actual. ¿Deseas generar una contraseña nueva para el administrador principal de este taller?')
+                    ->modalSubmitActionLabel('Sí, generar nueva contraseña')
+                    ->action(function (\App\Models\Taller $record) {
+                        // Buscamos al primer usuario creado para este taller (el admin principal)
+                        $adminUser = \App\Models\User::where('taller_id', $record->id)->orderBy('id', 'asc')->first();
+
+                        if (!$adminUser) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('Error')
+                                ->body('Este taller aún no tiene un usuario administrador asignado.')
+                                ->danger()
+                                ->send();
+                            return;
+                        }
+
+                        // Generamos una nueva contraseña temporal
+                        $nuevaPassword = \Illuminate\Support\Str::password(8, true, true, false, false);
+
+                        // Actualizamos al usuario (Sin Hash::make)
+                        $adminUser->update([
+                            'password' => $nuevaPassword
+                        ]);
+
+                        // Mostramos la alerta persistente con los nuevos datos
+                        \Filament\Notifications\Notification::make()
+                            ->title('🔑 Nuevos Accesos Generados')
+                            ->body(new \Illuminate\Support\HtmlString("
+                                Copia estos datos y envíaselos a tu cliente:<br><br>
+                                <strong>Usuario:</strong> {$adminUser->email}<br>
+                                <strong>Nueva Contraseña:</strong> {$nuevaPassword}
+                            "))
+                            ->success()
+                            ->persistent()
+                            ->send();
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -293,6 +353,8 @@ class TallerResource extends Resource
                 ]),
             ]);
     }
+
+
 
     public static function getRelations(): array
     {

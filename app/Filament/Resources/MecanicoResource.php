@@ -274,4 +274,11 @@ class MecanicoResource extends Resource
             'edit' => Pages\EditMecanico::route('/{record}/edit'),
         ];
     }
+
+
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return parent::getEloquentQuery()->where('taller_id', auth()->user()->taller_id);
+    }
+
 }

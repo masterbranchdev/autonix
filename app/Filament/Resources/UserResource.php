@@ -28,7 +28,8 @@ class UserResource extends Resource
     {
         $query = parent::getEloquentQuery();
 
-        if (!auth()->user()->hasRole('super_admin')) {
+        // Validamos con tu correo maestro para evitar fallos si el rol 'super_admin' no existe
+        if (auth()->user()->email !== 'admin@autonix.com.mx') {
             $query->where('taller_id', auth()->user()->taller_id);
         }
 
@@ -92,16 +93,28 @@ class UserResource extends Resource
                     ->searchable()
                     ->sortable()
                     ->weight('bold'),
+                // Esta columna SIEMPRE se ve
 
                 Tables\Columns\TextColumn::make('email')
                     ->label('Correo')
-                    ->searchable(),
+                    ->searchable()
+                    ->visibleFrom('sm'), // Se oculta solo en celulares muy pequeños
 
                 Tables\Columns\TextColumn::make('roles.name')
                     ->label('Rol Asignado')
                     ->badge()
                     ->color('primary')
-                    ->searchable(),
+                    ->searchable()
+                    ->visibleFrom('md'), // Se oculta en celulares, visible desde tablets
+
+                Tables\Columns\TextColumn::make('taller.nombre_comercial')
+                    ->label('Taller')
+                    ->badge()
+                    ->color('success')
+                    ->sortable()
+                    ->searchable()
+                    ->default('Global / Autonix')
+                    ->visibleFrom('md'), // Se oculta en celulares
 
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Fecha de Creación')
@@ -110,11 +123,22 @@ class UserResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                // --- NUEVO FILTRO POR TALLER ---
+                Tables\Filters\SelectFilter::make('taller_id')
+                    ->label('Filtrar por Taller')
+                    ->relationship('taller', 'nombre_comercial')
+                    ->searchable()
+                    ->preload(),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\EditAction::make(),
+                    Tables\Actions\DeleteAction::make(),
+                ])
+                    ->label('Opciones')
+                    ->icon('heroicon-m-ellipsis-vertical')
+                    ->color('primary')
+                    ->button(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
