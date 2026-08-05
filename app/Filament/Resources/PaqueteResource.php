@@ -23,6 +23,12 @@ class PaqueteResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
     protected static ?int $navigationSort = 2;
 
+    public static function getEloquentQuery(): Builder
+    {
+        // Sin excepciones. Todos los usuarios (incluyéndote) solo ven los datos de su propio taller.
+        return parent::getEloquentQuery()->where('taller_id', auth()->user()->taller_id);
+    }
+
     public static function form(Form $form): Form
     {
         return $form

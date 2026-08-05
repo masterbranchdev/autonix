@@ -29,7 +29,14 @@ class PerfilTaller extends Page
     // EL CANDADO: Solo los Super Admin pueden entrar a esta pantalla
     public static function canAccess(): bool
     {
-        return auth()->user()->hasRole('super_admin');
+        // 1. Definimos los roles permitidos (siempre en minúsculas para la comparación)
+        $rolesPermitidos = ['admin taller', 'super_admin', 'admin'];
+
+        // 2. Obtenemos los roles del usuario actual, los convertimos a minúsculas y buscamos coincidencias
+        return auth()->user()->roles->pluck('name')
+            ->map(fn($rol) => strtolower($rol))
+            ->intersect($rolesPermitidos)
+            ->isNotEmpty();
     }
 
     // Carga los datos actuales de tu taller al abrir la página

@@ -57,8 +57,14 @@ class AdminPanelProvider extends PanelProvider
                     ->label('Perfil del Taller')
                     ->url(fn (): string => PerfilTaller::getUrl())
                     ->icon('heroicon-o-building-storefront')
-                    // Lo hacemos visible solo si el usuario tiene el rol adecuado, coincidiendo con tu candado actual
-                    ->visible(fn (): bool => auth()->user()->hasRole('super_admin')),
+                    ->visible(function (): bool {
+                        $rolesPermitidos = ['admin taller', 'super_admin', 'admin'];
+
+                        return auth()->user()->roles->pluck('name')
+                            ->map(fn($rol) => strtolower($rol))
+                            ->intersect($rolesPermitidos)
+                            ->isNotEmpty();
+                    }),
             ])
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([

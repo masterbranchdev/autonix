@@ -23,6 +23,12 @@ class OrdenServicioResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-list';
     protected static ?int $navigationSort = 1;
 
+    public static function getEloquentQuery(): Builder
+    {
+        // Sin excepciones. Todos los usuarios (incluyéndote) solo ven los datos de su propio taller.
+        return parent::getEloquentQuery()->where('taller_id', auth()->user()->taller_id);
+    }
+
     public static function form(Form $form): Form
     {
         return $form

@@ -9,6 +9,7 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Storage; // <-- Importante para guardar archivos
 use Illuminate\Support\Facades\Http;
 
@@ -22,6 +23,12 @@ class TransaccionResource extends Resource
     protected static ?string $pluralModelLabel = 'Caja y Finanzas';
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
     protected static ?int $navigationSort = 3;
+
+    public static function getEloquentQuery(): Builder
+    {
+        // Sin excepciones. Todos los usuarios (incluyéndote) solo ven los datos de su propio taller.
+        return parent::getEloquentQuery()->where('taller_id', auth()->user()->taller_id);
+    }
 
     public static function form(Form $form): Form
     {

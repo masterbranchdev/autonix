@@ -11,6 +11,7 @@ use Filament\Forms\Set;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Carbon\Carbon;
 
 class CompraResource extends Resource
@@ -21,6 +22,12 @@ class CompraResource extends Resource
     protected static ?string $navigationGroup = 'Administración';
     protected static ?string $navigationIcon = 'heroicon-o-shopping-bag';
     protected static ?int $navigationSort = 2;
+
+    public static function getEloquentQuery(): Builder
+    {
+        // Sin excepciones. Todos los usuarios (incluyéndote) solo ven los datos de su propio taller.
+        return parent::getEloquentQuery()->where('taller_id', auth()->user()->taller_id);
+    }
 
     public static function updateTotals(Get $get, Set $set): void
     {

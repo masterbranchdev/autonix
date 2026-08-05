@@ -10,6 +10,7 @@ use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Illuminate\Database\Eloquent\Builder;
 use Filament\Tables\Table;
 
 class CotizacionResource extends Resource
@@ -21,6 +22,12 @@ class CotizacionResource extends Resource
     protected static ?string $pluralModelLabel = 'Cotizaciones';
     protected static ?string $navigationIcon = 'heroicon-o-document-currency-dollar';
     protected static ?int $navigationSort = 2;
+
+    public static function getEloquentQuery(): Builder
+    {
+        // Sin excepciones. Todos los usuarios (incluyéndote) solo ven los datos de su propio taller.
+        return parent::getEloquentQuery()->where('taller_id', auth()->user()->taller_id);
+    }
 
     // --- EL CEREBRO DE LAS MATEMÁTICAS EN TIEMPO REAL ---
     public static function updateTotals(Get $get, Set $set): void
