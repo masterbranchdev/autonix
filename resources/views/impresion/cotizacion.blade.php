@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Cotización - {{ $cotizacion->folio }}</title>
+    <link rel="icon" href="{{ asset('img/autonix_logo_solo.png') }}">
     <style>
         @page { size: letter; margin: 10mm; }
         body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #1f2937; line-height: 1.3; padding: 0; }

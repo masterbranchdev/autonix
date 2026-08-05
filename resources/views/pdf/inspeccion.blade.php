@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Reporte de Inspección - {{ $inspeccion->ordenServicio->folio }}</title>
+    <link rel="icon" href="{{ asset('img/autonix_logo_solo.png') }}">
     <style>
         @page { size: letter; margin: 8mm; }
         body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #111; padding: 0; line-height: 1.2; }

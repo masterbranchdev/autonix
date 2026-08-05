@@ -18,14 +18,20 @@ use Illuminate\Http\Request;
 // --- RUTAS DE AUTONIX SAAS ---
 // Ruta para imprimir la Orden de Servicio en PDF/Web
 Route::get('/orden-servicio/{orden}/imprimir', function (\App\Models\OrdenServicio $orden) {
+    if (auth()->user()->email !== 'admin@autonix.com.mx' && $orden->taller_id !== auth()->user()->taller_id) {
+        abort(403, 'No tienes permiso para ver esta orden de servicio.');
+    }
     return view('impresion.orden', ['orden' => $orden]);
 })->middleware(['auth'])->name('orden.imprimir');
 
 
 
 Route::get('/inspeccion/{inspeccion}/imprimir', function (\App\Models\Inspeccion $inspeccion) {
-    // Cargamos la inspección con su relación para evitar errores de base de datos en la vista
     $inspeccion->load('ordenServicio.vehiculo.cliente', 'ordenServicio.taller');
+
+    if (auth()->user()->email !== 'admin@autonix.com.mx' && optional($inspeccion->ordenServicio)->taller_id !== auth()->user()->taller_id) {
+        abort(403, 'No tienes permiso para ver esta inspección.');
+    }
 
     return view('impresion.inspeccion', compact('inspeccion'));
 })->name('inspeccion.imprimir')->middleware('auth');
@@ -33,8 +39,11 @@ Route::get('/inspeccion/{inspeccion}/imprimir', function (\App\Models\Inspeccion
 
 
 Route::get('/cotizacion/{cotizacion}/imprimir', function (App\Models\Cotizacion $cotizacion) {
-    // Cargamos la cotización con sus items, vehículo, cliente y taller
     $cotizacion->load('items', 'ordenServicio.vehiculo.cliente', 'ordenServicio.taller');
+
+    if (auth()->user()->email !== 'admin@autonix.com.mx' && $cotizacion->taller_id !== auth()->user()->taller_id) {
+        abort(403, 'No tienes permiso para ver esta cotización.');
+    }
 
     return view('impresion.cotizacion', compact('cotizacion'));
 })->name('cotizacion.imprimir')->middleware('auth');

@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Orden de Servicio - {{ $orden->folio }}</title>
+    <link rel="icon" href="{{ asset('img/autonix_logo_solo.png') }}">
     <style>
         @page { size: letter; margin: 8mm 10mm; }
 

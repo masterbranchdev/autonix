@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Corte Financiero Ejecutivo</title>
+    <link rel="icon" href="{{ asset('img/autonix_logo_solo.png') }}">
     <style>
         body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #333; }
         .header { text-align: center; border-bottom: 2px solid #111; padding-bottom: 10px; margin-bottom: 20px; }

@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>404 - Página no encontrada | Autonix</title>
+    <link rel="icon" href="{{ asset('img/autonix_logo_solo.png') }}">
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-50 flex items-center justify-center h-screen selection:bg-orange-500 selection:text-white">
