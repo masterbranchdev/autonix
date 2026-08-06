@@ -64,12 +64,12 @@ class PerfilTaller extends Page
                             ->image()
                             ->imageEditor()
                             ->maxSize(2048)
-                            ->moveFiles() // <--- ESTO ES VITAL: Fuerza a Filament a mover el archivo de tmp al destino
+                            ->moveFiles()
                             ->getUploadedFileNameForStorageUsing(
                                 function (\Illuminate\Http\UploadedFile $file) {
                                     $tallerId = auth()->user()->taller_id;
                                     $extension = $file->getClientOriginalExtension();
-                                    $timestamp = time(); // Evita caché en el navegador
+                                    $timestamp = time();
                                     return "logo_taller_{$tallerId}_{$timestamp}.{$extension}";
                                 }
                             )
@@ -78,32 +78,29 @@ class PerfilTaller extends Page
                         TextInput::make('nombre_comercial')
                             ->label('Nombre Comercial del Taller')
                             ->required()
-                            ->columnSpan(2),
+                            ->columnSpan(['default' => 1, 'md' => 2]), // Responsivo: 1 en móvil, 2 en PC
 
                         TextInput::make('telefono')
                             ->label('Teléfono Fijo / Oficina')
                             ->tel()
-                            ->columnSpan(1),
+                            ->columnSpan(['default' => 1, 'md' => 1]), // Responsivo: 1 en móvil, 1 en PC
 
                         TextInput::make('whatsapp_publico')
                             ->label('WhatsApp de Atención al Cliente')
                             ->tel()
-                            ->columnSpan(1),
+                            ->columnSpan(['default' => 1, 'md' => 1]), // Responsivo: 1 en móvil, 1 en PC
 
                         Textarea::make('domicilio')
                             ->label('Dirección Completa (Para facturas y PDFs)')
                             ->rows(3)
                             ->columnSpanFull(),
 
-
                         TextInput::make('horario_atencion')
                             ->label('Horarios de Atención (Ej. Lun-Vie 9am-6pm, Sáb 9am-2pm)')
                             ->placeholder('Ej. Lunes a Viernes de 9:00 AM a 6:00 PM')
                             ->columnSpanFull(),
 
-                    ])->columns(4),
-
-                // ... (aquí termina tu Section anterior) ...
+                    ])->columns(['default' => 1, 'md' => 4]), // Responsivo de la sección completa
 
                 // --- NUEVA SECCIÓN: MEMBRESÍA Y RENOVACIÓN ---
                 Section::make('Suscripción y Pagos')
@@ -147,16 +144,8 @@ class PerfilTaller extends Page
                                 ');
                             })
                     ]),
-
-
-
             ])
-            ->statePath('data'); // Conecta los campos con el arreglo $data
-
-
-
-
-
+            ->statePath('data');
     }
 
     // Botón de guardar inferior

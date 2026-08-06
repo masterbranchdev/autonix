@@ -39,20 +39,22 @@ class TallerResource extends Resource
                             ->required()
                             ->maxLength(255)
                             // --- CANDADO DE SEGURIDAD SAAS ---
-                            // Bloquea cualquier intento de usar "autonix" (sin importar mayúsculas o minúsculas)
                             ->notRegex('/autonix/i')
                             ->validationMessages([
                                 'not_regex' => 'Por seguridad del sistema SaaS, el nombre del taller no puede contener la palabra "Autonix".',
                             ])
-                            ->columnSpan(2),
+                            // Toma toda la fila en móvil, 2 en PC
+                            ->columnSpan(['default' => 1, 'md' => 2]),
 
                         Forms\Components\TextInput::make('telefono')
                             ->tel()
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->columnSpan(['default' => 1, 'md' => 1]),
 
                         Forms\Components\TextInput::make('whatsapp_publico')
                             ->tel()
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->columnSpan(['default' => 1, 'md' => 1]),
 
                         Forms\Components\Textarea::make('domicilio')
                             ->columnSpanFull(),
@@ -65,7 +67,7 @@ class TallerResource extends Resource
                             ->label('Ruta del Logo')
                             ->maxLength(255)
                             ->columnSpanFull(),
-                    ])->columns(4),
+                    ])->columns(['default' => 1, 'md' => 4]), // Responsivo: 1 en móvil, 4 en PC
 
                 // SECCIÓN 2: CONTROL SAAS (Suscripciones)
                 Forms\Components\Section::make('Control de Suscripción (SaaS)')
@@ -74,10 +76,9 @@ class TallerResource extends Resource
                         Forms\Components\Select::make('plan')
                             ->label('Plan Contratado')
                             ->options([
-                                'prueba' => '🟢 En Periodo de Prueba (Demo)',
-                                'basico' => '🔵 Básico',
-                                'pro' => '🟣 Pro',
-                                'premium' => '⭐ Premium',
+                                'Demo' => '🚀 En Periodo de Prueba (Demo)',
+                                'Avanzado' => '🔵 Avanzado',
+                                'Agencia' => '🚘 Agencia',
                             ])
                             ->default('prueba')
                             ->required(),
@@ -93,15 +94,15 @@ class TallerResource extends Resource
                         Forms\Components\Toggle::make('activo')
                             ->label('Taller Activo (Permitir acceso al sistema)')
                             ->onColor('success')
-                            ->offColor('danger') // Si lo apagas, se pone rojo
+                            ->offColor('danger')
                             ->inline(false)
                             ->required(),
-                    ])->columns(2),
+                    ])->columns(['default' => 1, 'md' => 2]), // Responsivo
 
                 // SECCIÓN 3: CONFIGURACIÓN DE API (Twilio)
                 Forms\Components\Section::make('Configuración de Mensajería (Twilio API)')
                     ->description('Credenciales exclusivas para el envío de WhatsApp de este taller.')
-                    ->collapsed() // Lo mantenemos cerrado por defecto para no saturar la pantalla
+                    ->collapsed()
                     ->schema([
                         Forms\Components\TextInput::make('twilio_sid')
                             ->label('Account SID')
@@ -109,7 +110,7 @@ class TallerResource extends Resource
 
                         Forms\Components\TextInput::make('twilio_token')
                             ->label('Auth Token')
-                            ->password() // Oculta el token por seguridad
+                            ->password()
                             ->revealable()
                             ->maxLength(255),
 
@@ -129,20 +130,21 @@ class TallerResource extends Resource
                         Forms\Components\TextInput::make('twilio_tpl_recordatorio')
                             ->label('Template ID: Recordatorio')
                             ->maxLength(255),
-                    ])->columns(3),
+                    ])->columns(['default' => 1, 'md' => 3]), // Responsivo
 
                 // --- NUEVA SECCIÓN: INTELIGENCIA ARTIFICIAL ---
                 Forms\Components\Section::make('Copiloto Inteligencia Artificial')
                     ->description('Asigna una API Key independiente para controlar los costos de OpenAI por taller.')
-                    ->collapsed() // Cerrada por defecto para mantener limpio el panel
+                    ->collapsed()
                     ->schema([
                         Forms\Components\TextInput::make('openai_api_key')
                             ->label('API Key de OpenAI')
-                            ->password() // Oculta la llave con asteriscos
+                            ->password()
                             ->revealable()
                             ->maxLength(255)
                             ->columnSpanFull(),
                     ]),
+
                 Forms\Components\TextInput::make('limite_ia_mensual')
                     ->label('Límite de Consultas Mensuales')
                     ->numeric()
@@ -153,7 +155,7 @@ class TallerResource extends Resource
                     ->label('Consumo Actual del Mes')
                     ->numeric()
                     ->default(0)
-                    ->disabled() // Solo lectura para ti, el sistema lo actualiza solo
+                    ->disabled()
                     ->helperText('Se reinicia a 0 cada mes.'),
 
                 // --- NUEVA SECCIÓN: DATOS DEL EMISOR (SAT) ---
@@ -183,34 +185,10 @@ class TallerResource extends Resource
                                 '612' => '612 - Personas Físicas con Actividades Empresariales y Profesionales',
                                 '621' => '621 - Incorporación Fiscal (RIF)',
                                 '626' => '626 - Régimen Simplificado de Confianza (RESICO)',
-                                // Puedes agregar más del catálogo si lo deseas
                             ]),
-                    ])->columns(2),
+                    ])->columns(['default' => 1, 'md' => 2]), // Responsivo
 
                 // --- NUEVA SECCIÓN: CONFIGURACIÓN DE FISCALAPI ---
-//                \Filament\Forms\Components\Section::make('Configuración de Facturación (CFDI 4.0)')
-//                    ->description('Ingresa tus credenciales de Facturapi para habilitar el timbrado de facturas desde Autonix.')
-//                    ->icon('heroicon-o-building-office')
-//                    ->schema([
-//                        \Filament\Forms\Components\TextInput::make('facturapi_key_test')
-//                            ->label('API Key (Modo Pruebas / Test)')
-//                            ->password() // Ocultamos la llave por seguridad
-//                            ->revealable()
-//                            ->columnSpan(1),
-//
-//                        \Filament\Forms\Components\TextInput::make('facturapi_key_live')
-//                            ->label('API Key (Modo Producción / Live)')
-//                            ->password()
-//                            ->revealable()
-//                            ->columnSpan(1),
-//
-//                        \Filament\Forms\Components\Toggle::make('facturacion_produccion')
-//                            ->label('Habilitar Modo Producción (Facturas Reales)')
-//                            ->helperText('¡Atención! Al activar esto, las facturas tendrán validez fiscal ante el SAT.')
-//                            ->onColor('danger') // Color rojo para advertir que es en serio
-//                            ->columnSpanFull(),
-//                    ])->columns(2),
-
                 \Filament\Forms\Components\Section::make('Credenciales de Facturación (Fiscal API)')
                     ->icon('heroicon-o-key')
                     ->schema([
@@ -238,9 +216,7 @@ class TallerResource extends Resource
                             ->label('Tenant Key / TID (Producción)')
                             ->password()
                             ->revealable(),
-                    ])->columns(2),
-
-
+                    ])->columns(['default' => 1, 'md' => 2]), // Responsivo
             ]);
     }
 
