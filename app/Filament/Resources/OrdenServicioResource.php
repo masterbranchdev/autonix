@@ -712,6 +712,27 @@ class OrdenServicioResource extends Resource
                         })
                         ->openUrlInNewTab(),
 
+                    \Filament\Tables\Actions\Action::make('link')
+                        ->label('Link status')
+                        ->icon('heroicon-o-globe-alt')
+                        ->color('primary')
+                        ->url(function (\App\Models\OrdenServicio $record) {
+                            $vehiculo = $record->vehiculo;
+                            $cliente = $vehiculo->cliente;
+                            $taller = $record->taller;
+
+                            $telefono = preg_replace('/[^0-9]/', '', $cliente->telefono);
+                            if (strlen($telefono) == 10) { $telefono = '52' . $telefono; }
+
+                            $link = route('portal.status', $record->token_url);
+                            $nombreTaller = $taller ? $taller->nombre_comercial : 'Autonix';
+
+                            $mensaje = "Hola *{$cliente->nombre}*, bienvenido a *{$nombreTaller}* 👨‍🔧.\n\nHemos recibido tu *{$vehiculo->marca} {$vehiculo->modelo}*.\n\nEn este enlace único podrás ver el *Tracker en tiempo real* de tu servicio, tus inspecciones, cotizaciones y el historial completo de tu auto:\n👉 {$link}\n\nTe notificaremos por aquí cuando haya actualizaciones.";
+
+                            return $link;
+                        })
+                        ->openUrlInNewTab(),
+
                 ])
                     ->label('Opciones') // Texto que puede aparecer en escritorio
                     ->icon('heroicon-m-ellipsis-vertical') // El clásico ícono de tres puntos

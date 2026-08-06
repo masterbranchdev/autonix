@@ -9,8 +9,8 @@
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
         .tracker-step { transition: all 0.3s ease; }
-        .tracker-active { background-color: #2563eb; color: white; border-color: #2563eb; }
-        .tracker-done { background-color: #10b981; color: white; border-color: #10b981; }
+        .tracker-active { background-color: #CC7B2E; color: white; border-color: #CC7B2E; }
+        .tracker-done { background-color: #6b7c8d; color: white; border-color: #6b7c8d; }
         .tracker-pending { background-color: #f3f4f6; color: #9ca3af; border-color: #d1d5db; }
         .line-done { background-color: #10b981; }
         .line-pending { background-color: #e5e7eb; }
@@ -48,14 +48,14 @@
     $mostrarDocumentos = $pasoActual < 7;
 @endphp
 
-<header class="bg-slate-900 text-white p-6 shadow-md rounded-b-3xl">
+<header class="bg-slate-700 text-white p-6 shadow-md rounded-b-3xl">
     <div class="max-w-md mx-auto text-center">
         @if($taller && $taller->logo_path)
             <img src="{{ \Illuminate\Support\Facades\Storage::disk('s3')->url($taller->logo_path) }}" class="mx-auto h-16 mb-2">
         @else
             <h1 class="text-2xl font-black tracking-widest uppercase">{{ $taller->nombre_comercial ?? 'Autonix' }}</h1>
         @endif
-        <p class="text-xs text-slate-400 mt-2 uppercase tracking-widest">Expediente Digital del Vehículo</p>
+        <p class="text-xs text-white mt-2 uppercase tracking-widest">Expediente Digital del Vehículo</p>
     </div>
 </header>
 
@@ -66,13 +66,13 @@
 
         <div class="relative flex justify-between items-center w-full">
             <div class="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-1 bg-gray-200 z-0 rounded-full"></div>
-            <div class="absolute left-0 top-1/2 transform -translate-y-1/2 h-1 bg-emerald-500 z-0 rounded-full transition-all duration-500" style="width: {{ (($pasoActual - 1) / (count($pasos) - 1)) * 100 }}%"></div>
+            <div class="absolute left-0 top-1/2 transform -translate-y-1/2 h-1 bg-slate-500 z-0 rounded-full transition-all duration-500" style="width: {{ (($pasoActual - 1) / (count($pasos) - 1)) * 100 }}%"></div>
 
             @foreach($pasos as $index => $paso)
                 @php
                     $numeroPaso = $index + 1;
                     if($numeroPaso < $pasoActual) { $clase = 'tracker-done'; }
-                    elseif($numeroPaso == $pasoActual) { $clase = 'tracker-active shadow-lg shadow-blue-200 scale-110'; }
+                    elseif($numeroPaso == $pasoActual) { $clase = 'tracker-active shadow-lg shadow-orange-200 scale-110'; }
                     else { $clase = 'tracker-pending'; }
                 @endphp
 
@@ -81,7 +81,7 @@
                         {{ $paso['icon'] }}
                     </div>
                     <span class="text-[10px] font-bold mt-2 text-center absolute -bottom-5 w-20
-                            {{ $numeroPaso == $pasoActual ? 'text-blue-600' : 'text-gray-400' }}">
+                            {{ $numeroPaso == $pasoActual ? 'text-orange-600' : 'text-gray-400' }}">
                             {{ $paso['label'] }}
                         </span>
                 </div>
@@ -89,7 +89,7 @@
         </div>
 
         <div class="mt-10 text-center">
-            <p class="text-2xl font-black text-slate-800">{{ strtoupper($orden->estatus) }}</p>
+            <p class="text-2xl font-black text-slate-800">{{ mb_strtoupper($orden->estatus) }}</p>
             <p class="text-sm text-gray-500 mt-1">Última actualización: {{ $orden->updated_at->diffForHumans() }}</p>
         </div>
     </div>
