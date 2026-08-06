@@ -192,7 +192,7 @@ class CotizacionResource extends Resource
                                         ->pluck('nombre', 'id'))
                                     ->searchable()
                                     ->live()
-                                    ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                    ->afterStateUpdated(function ($state, \Filament\Forms\Set $set, \Filament\Forms\Get $get) {
                                         if ($state) {
                                             $articulo = \App\Models\Articulo::find($state);
                                             if ($articulo) {
@@ -203,19 +203,19 @@ class CotizacionResource extends Resource
                                             }
                                         }
                                     })
-                                    ->columnSpan(2),
+                                    ->columnSpan(['default' => 2, 'md' => 2]),
 
                                 \Filament\Forms\Components\TextInput::make('descripcion')
                                     ->label('Concepto (Manual/SAT)')
                                     ->required()
-                                    ->columnSpan(2),
+                                    ->columnSpan(['default' => 2, 'md' => 2]),
 
                                 \Filament\Forms\Components\TextInput::make('cantidad')
                                     ->numeric()
                                     ->default(1)
                                     ->required()
                                     ->live(onBlur: true)
-                                    ->afterStateUpdated(function (Get $get, Set $set) {
+                                    ->afterStateUpdated(function (\Filament\Forms\Get $get, \Filament\Forms\Set $set) {
                                         $set('subtotal', number_format(floatval($get('cantidad')) * floatval($get('precio_unitario')), 2, '.', ''));
                                         self::updateTotals($get, $set);
                                     })
@@ -227,7 +227,7 @@ class CotizacionResource extends Resource
                                     ->prefix('$')
                                     ->required()
                                     ->live(onBlur: true)
-                                    ->afterStateUpdated(function (Get $get, Set $set) {
+                                    ->afterStateUpdated(function (\Filament\Forms\Get $get, \Filament\Forms\Set $set) {
                                         $set('subtotal', number_format(floatval($get('cantidad')) * floatval($get('precio_unitario')), 2, '.', ''));
                                         self::updateTotals($get, $set);
                                     })
@@ -238,20 +238,18 @@ class CotizacionResource extends Resource
                                     ->numeric()
                                     ->prefix('$')
                                     ->readOnly()
-                                    ->columnSpan(1),
+                                    ->columnSpan(['default' => 2, 'md' => 1]),
 
-                                // --- EL CAMPO DE OBSERVACIONES REUBICADO DEBAJO ---
                                 \Filament\Forms\Components\TextInput::make('observaciones')
-                                    ->hiddenLabel() // Ocultamos el label para mantener el minimalismo
+                                    ->hiddenLabel()
                                     ->placeholder('Observaciones o detalles de la refacción (Ej. Para Ford Ranger 2015)...')
                                     ->maxLength(255)
-                                    // Inyectamos CSS directo para hacer el campo más estrecho y simular el tamaño "sm"
                                     ->extraInputAttributes(['style' => 'font-size: 0.85rem; padding-top: 0.35rem; padding-bottom: 0.35rem;'])
                                     ->columnSpanFull(),
                             ])
-                            ->columns(7) // Regresamos a 7 columnas para que la fila principal encaje matemáticamente perfecta
+                            ->columns(['default' => 2, 'md' => 7]) // Responsivo: 2 columnas en celular, 7 en PC
                             ->live(onBlur: true)
-                            ->afterStateUpdated(fn (Get $get, Set $set) => self::updateTotals($get, $set))
+                            ->afterStateUpdated(fn (\Filament\Forms\Get $get, \Filament\Forms\Set $set) => self::updateTotals($get, $set))
                             ->addActionLabel('Agregar Fila Manual')
                             ->columnSpanFull(),
                     ]),

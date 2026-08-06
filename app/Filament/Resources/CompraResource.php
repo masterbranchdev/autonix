@@ -116,17 +116,17 @@ class CompraResource extends Resource
                                         ->pluck('nombre', 'id'))
                                     ->required()
                                     ->searchable()
-                                    ->columnSpan(2),
+                                    ->columnSpan(['default' => 2, 'md' => 2]), // Toma toda la fila en móvil, 2 en PC
 
                                 \Filament\Forms\Components\TextInput::make('cantidad')
                                     ->numeric()
                                     ->default(1)
                                     ->required()
                                     ->live(onBlur: true)
-                                    ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                    ->afterStateUpdated(function ($state, \Filament\Forms\Set $set, \Filament\Forms\Get $get) {
                                         $set('subtotal', number_format(floatval($state) * floatval($get('precio_unitario') ?? 0), 2, '.', ''));
                                     })
-                                    ->columnSpan(1),
+                                    ->columnSpan(1), // Toma 1 columna (mitad de la pantalla en móvil)
 
                                 \Filament\Forms\Components\TextInput::make('precio_unitario')
                                     ->label('Costo Unitario')
@@ -134,21 +134,21 @@ class CompraResource extends Resource
                                     ->prefix('$')
                                     ->required()
                                     ->live(onBlur: true)
-                                    ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                    ->afterStateUpdated(function ($state, \Filament\Forms\Set $set, \Filament\Forms\Get $get) {
                                         $set('subtotal', number_format(floatval($state) * floatval($get('cantidad') ?? 1), 2, '.', ''));
                                     })
-                                    ->columnSpan(1),
+                                    ->columnSpan(1), // Toma 1 columna (mitad de la pantalla en móvil)
 
                                 \Filament\Forms\Components\TextInput::make('subtotal')
                                     ->label('Importe')
                                     ->numeric()
                                     ->prefix('$')
                                     ->readOnly()
-                                    ->columnSpan(1),
+                                    ->columnSpan(['default' => 2, 'md' => 1]), // Toma toda la fila en móvil, 1 en PC
                             ])
-                            ->columns(5)
+                            ->columns(['default' => 2, 'md' => 5]) // Grid responsivo: 2 columnas en móvil, 5 en PC
                             ->live(onBlur: true)
-                            ->afterStateUpdated(fn (Get $get, Set $set) => self::updateTotals($get, $set))
+                            ->afterStateUpdated(fn (\Filament\Forms\Get $get, \Filament\Forms\Set $set) => self::updateTotals($get, $set))
                             ->columnSpanFull(),
                     ]),
 
