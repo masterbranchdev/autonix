@@ -95,7 +95,6 @@ class AdminPanelProvider extends PanelProvider
             ])
 
             // --- NUEVO: INDICADOR DE MEMBRESÍA EN EL TOPBAR (ESTILO FILAMENT NATIVO) ---
-            // --- NUEVO: INDICADOR DE MEMBRESÍA EN EL TOPBAR (ESTILO FILAMENT NATIVO) ---
             ->renderHook(
                 PanelsRenderHook::GLOBAL_SEARCH_AFTER,
                 fn (): string => Blade::render('

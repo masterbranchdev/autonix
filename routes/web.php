@@ -6,7 +6,7 @@ use App\Models\Transaccion;
 use Illuminate\Http\Request;
 
 //Route::view('/', 'welcome');
-
+Route::view('/', 'welcome')->name('inicio');
 //Route::view('dashboard', 'dashboard')
 //    ->middleware(['auth', 'verified'])
 //    ->name('dashboard');

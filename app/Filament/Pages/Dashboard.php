@@ -12,13 +12,14 @@ class Dashboard extends \Filament\Pages\Dashboard
     // Solo dejamos el trait de los filtros, quitamos el HasWidgetShield de aquí
     use HasFiltersForm;
 
+    // --- CORRECCIÓN AQUÍ: Quitamos el '?' para que coincida exactamente con la clase padre ---
+    protected static string $routePath = 'dashboard';
+
     // LA MAGIA: Esto coloca el widget en el encabezado absoluto de la página
     protected function getHeaderWidgets(): array
     {
         return [
             \App\Filament\Widgets\WelcomeWidget::class,
-
-
         ];
     }
 
@@ -40,7 +41,6 @@ class Dashboard extends \Filament\Pages\Dashboard
                             ->live(),
                     ])
                     ->columns(2)
-
             ]);
     }
 }
