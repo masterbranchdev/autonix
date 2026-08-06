@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bienvenido a Autonix</title>
+    <link rel="icon" href="{{ asset('img/autonix_logo_solo.png') }}">
     <!-- Incluimos Tailwind CSS vía CDN para que funcione de inmediato -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
