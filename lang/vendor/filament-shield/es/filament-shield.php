@@ -48,7 +48,7 @@ return [
     'widgets' => 'Widgets',
     'pages' => 'Páginas',
     'custom' => 'Permisos personalizados',
-
+    'validation.required' => 'Este campo es obligatorio',
     /*
     |--------------------------------------------------------------------------
     | Messages

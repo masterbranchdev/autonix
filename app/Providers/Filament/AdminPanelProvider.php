@@ -177,7 +177,22 @@ class AdminPanelProvider extends PanelProvider
                         </div>
                     @endif
                 ')
-            ) // <-- AQUÍ CERRAMOS EL PRIMER RENDER HOOK
+            )
+            ->renderHook(
+                PanelsRenderHook::AUTH_LOGIN_FORM_AFTER,
+                fn (): string => Blade::render('
+                    <script>
+                        document.addEventListener("mousemove", function syncAutofill() {
+                            document.querySelectorAll("input").forEach(input => {
+                                if (input.value) {
+                                    input.dispatchEvent(new Event("input", { bubbles: true }));
+                                }
+                            });
+                            document.removeEventListener("mousemove", syncAutofill);
+                        });
+                    </script>
+                ')
+            )
             ->renderHook( // <-- Y AQUÍ INICIAMOS EL SEGUNDO
                 PanelsRenderHook::FOOTER,
                 fn () => view('filament.footer')
