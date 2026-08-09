@@ -125,8 +125,8 @@
     </div>
     @endif
 
-    @if($mostrarDocumentos && $orden->cotizaciones->count() > 0)
-        <div class="bg-white rounded-3xl shadow-sm p-1 border border-blue-100">
+    @if($pasoActual >= 3 && $mostrarDocumentos && $orden->cotizaciones->count() > 0)
+        <div class="bg-white rounded-3xl shadow-sm p-1 border border-blue-100 mt-6">
             <div class="bg-blue-50 rounded-[22px] p-5">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-sm font-black uppercase text-blue-900 tracking-wider">Cotizaciones Actuales</h3>
@@ -138,10 +138,10 @@
                         <div class="flex justify-between items-center mb-3">
                             <span class="font-bold text-slate-700">Folio: {{ $cotizacion->folio }}</span>
                             <span class="text-[10px] px-2 py-1 rounded-full font-black uppercase tracking-wider
-                                @if($cotizacion->estatus == 'Aprobada') bg-emerald-100 text-emerald-700
-                                @else bg-amber-100 text-amber-700 @endif">
-                                {{ $cotizacion->estatus }}
-                            </span>
+                            @if($cotizacion->estatus == 'Aprobada') bg-emerald-100 text-emerald-700
+                            @else bg-amber-100 text-amber-700 @endif">
+                            {{ $cotizacion->estatus }}
+                        </span>
                         </div>
                         <div class="flex justify-between items-end">
                             <span class="text-xs text-gray-500 font-bold">Total a pagar:</span>
