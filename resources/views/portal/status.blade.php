@@ -80,7 +80,7 @@
                     <div class="w-10 h-10 rounded-full flex items-center justify-center text-lg border-2 {{ $clase }}">
                         {{ $paso['icon'] }}
                     </div>
-                    <span class="text-[10px] font-bold mt-2 text-center absolute -bottom-5 w-20
+                    <span class="text-[8px] sm:text-[10px] leading-tight font-bold mt-2 text-center absolute -bottom-7 sm:-bottom-5 w-12 sm:w-20
                             {{ $numeroPaso == $pasoActual ? 'text-orange-600' : 'text-gray-400' }}">
                             {{ $paso['label'] }}
                         </span>
