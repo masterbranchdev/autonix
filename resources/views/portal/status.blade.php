@@ -115,10 +115,12 @@
                 <span class="text-xl">📄</span>
                 Orden de Servicio
             </a>
+            @if($orden->inspecciones->count() > 0)
             <a href="{{ route('portal.inspeccion.pdf', $orden->token_url) }}" target="_blank" class="flex flex-col items-center justify-center gap-1 bg-slate-50 border border-slate-200 hover:bg-slate-100 hover:border-blue-300 text-slate-700 hover:text-blue-700 py-3 px-2 rounded-2xl text-xs font-bold transition-all">
                 <span class="text-xl">📋</span>
                 Hoja de Inspección
             </a>
+            @endif
         </div>
     </div>
     @endif
