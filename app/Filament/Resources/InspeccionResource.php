@@ -42,26 +42,28 @@ class InspeccionResource extends Resource
                     ->relationship(
                         name: 'ordenServicio',
                         titleAttribute: 'folio',
-                        modifyQueryUsing: fn (\Illuminate\Database\Eloquent\Builder $query) => $query->with('vehiculo.cliente')->latest('id')
+                        modifyQueryUsing: fn (\Illuminate\Database\Eloquent\Builder $query) => $query
+                            ->with('vehiculo.cliente')
+                            ->doesntHave('inspecciones')
+                            ->latest('id')
                     )
-                    // AQUI AGREGAMOS EL NOMBRE DEL CLIENTE AL FINAL
                     ->getOptionLabelFromRecordUsing(fn (\App\Models\OrdenServicio $record) => "Folio: {$record->folio} - " . ($record->vehiculo ? $record->vehiculo->placas : 'Sin placas') . ($record->vehiculo && $record->vehiculo->cliente ? " - {$record->vehiculo->cliente->nombre}" : ''))
-                    ->searchable() // Lo dejamos vacío para que Filament active la cajita de texto
+                    ->searchable()
                     ->getSearchResultsUsing(function (string $search) {
-                        // 1. Limpiamos lo que escribió el usuario (De "Pérez" a "Perez")
                         $cleanSearch = \Illuminate\Support\Str::ascii($search);
 
-                        // 2. Hacemos la búsqueda manual con el texto limpio
                         return \App\Models\OrdenServicio::with('vehiculo.cliente')
-                            ->where('folio', 'ilike', "%{$cleanSearch}%")
-                            ->orWhereHas('vehiculo', function ($q) use ($cleanSearch) {
-                                $q->where('placas', 'ilike', "%{$cleanSearch}%")
-                                    ->orWhereHas('cliente', fn ($q2) => $q2->where('nombre', 'ilike', "%{$cleanSearch}%"));
+                            ->doesntHave('inspecciones')
+                            ->where(function ($query) use ($cleanSearch) {
+                                $query->where('folio', 'ilike', "%{$cleanSearch}%")
+                                    ->orWhereHas('vehiculo', function ($q) use ($cleanSearch) {
+                                        $q->where('placas', 'ilike', "%{$cleanSearch}%")
+                                            ->orWhereHas('cliente', fn ($q2) => $q2->where('nombre', 'ilike', "%{$cleanSearch}%"));
+                                    });
                             })
                             ->latest('id')
                             ->limit(50)
                             ->get()
-                            // 3. Formateamos el resultado para que se vea bonito en el select
                             ->mapWithKeys(fn ($record) => [
                                 $record->id => "Folio: {$record->folio} - " . ($record->vehiculo ? $record->vehiculo->placas : 'Sin placas') . ($record->vehiculo && $record->vehiculo->cliente ? " - {$record->vehiculo->cliente->nombre}" : '')
                             ])
@@ -69,7 +71,6 @@ class InspeccionResource extends Resource
                     })
                     ->preload()
                     ->required()
-                    // --- NUEVAS REGLAS DE BLOQUEO ---
                     ->unique(table: 'inspecciones', column: 'orden_servicio_id', ignoreRecord: true)
                     ->validationMessages([
                         'unique' => 'Bloqueo: Esta orden de servicio ya cuenta con una inspección registrada.',
