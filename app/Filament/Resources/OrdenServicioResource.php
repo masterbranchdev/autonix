@@ -481,6 +481,11 @@ class OrdenServicioResource extends Resource
                     ->columns(2)
                     ->columnSpanFull(),
 
+                    \Filament\Forms\Components\Textarea::make('observaciones_generales')
+                        ->label('Observaciones Generales')
+                        ->maxLength(1000)
+                        ->columnSpanFull(),
+
                     // FIRMA DIGITAL Y NOMBRE DE QUIEN ENTREGA
                     \Filament\Forms\Components\Section::make('Firma de Conformidad')
                     ->description('Persona que entrega el vehículo en el taller')

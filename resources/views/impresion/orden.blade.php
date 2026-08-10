@@ -128,14 +128,16 @@
     </div>
 </div>
 
-<div class="box" style="margin-bottom: 12px; width: 100%; box-sizing: border-box;">
-    <div class="section-title">Trabajo a Realizar</div>
-    <div style="min-height: 40px; white-space: pre-line; padding: 2px;">{{ $orden->trabajo_a_realizar ?: 'Sin especificar.' }}</div>
-</div>
+<div class="flex-row">
+    <div class="box col-60">
+        <div class="section-title">Trabajo a Realizar</div>
+        <div style="min-height: 40px; white-space: pre-line; padding: 2px;">{{ $orden->trabajo_a_realizar ?: 'Sin especificar.' }}</div>
+    </div>
 
-<div class="box" style="margin-bottom: 12px; width: 100%; box-sizing: border-box;">
-    <div class="section-title">Observaciones</div>
-    <div style="min-height: 40px; white-space: pre-line; padding: 2px;">{{ $orden->observaciones ?: 'Ninguna.' }}</div>
+    <div class="box col-40">
+        <div class="section-title">Observaciones</div>
+        <div style="min-height: 40px; white-space: pre-line; padding: 2px;">{{ $orden->observaciones ?: 'Ninguna.' }}</div>
+    </div>
 </div>
 
 <div class="flex-row">
@@ -214,6 +216,11 @@
             @if(isset($orden->danios_carroceria['lado_izquierdo']))<img src="{{ $orden->danios_carroceria['lado_izquierdo'] }}" class="car-drawing img-lateral">@endif
         </div>
     </div>
+</div>
+
+<div class="box" style="margin-bottom: 12px; width: 100%; box-sizing: border-box;">
+    <div class="section-title">Observaciones Generales</div>
+    <div style="min-height: 40px; white-space: pre-line; padding: 2px;">{{ $orden->observaciones_generales ?: 'Sin especificar.' }}</div>
 </div>
 
 <div class="firmas-container">
