@@ -45,22 +45,25 @@ class TransaccionResource extends Resource
                                 'Egreso' => 'Egreso (Gasto / Salida de dinero)',
                             ])
                             ->required()
-                            ->live(),
+                            ->live()
+                            ->columnSpanFull(), // Toma todo el ancho disponible
 
                         \Filament\Forms\Components\TextInput::make('concepto')
                             ->label('Concepto / Descripción')
                             ->placeholder('Ej. Pago de luz, Compra de aceite...')
                             ->required()
-                            ->columnSpan(2),
+                            ->columnSpanFull(), // Toma todo el ancho disponible
 
                         \Filament\Forms\Components\TextInput::make('monto')
                             ->numeric()
                             ->prefix('$')
-                            ->required(),
+                            ->required()
+                            ->columnSpan(['default' => 1, 'sm' => 1]),
 
                         \Filament\Forms\Components\DatePicker::make('fecha')
                             ->default(now())
-                            ->required(),
+                            ->required()
+                            ->columnSpan(['default' => 1, 'sm' => 1]),
 
                         \Filament\Forms\Components\Select::make('metodo_pago')
                             ->label('Método de Pago')
@@ -71,17 +74,19 @@ class TransaccionResource extends Resource
                                 'Transferencia SPEI' => 'Transferencia SPEI',
                             ])
                             ->required()
-                            ->live(),
+                            ->live()
+                            ->columnSpan(['default' => 1, 'sm' => 1]),
 
                         \Filament\Forms\Components\TextInput::make('referencia')
                             ->label('Referencia / Autorización')
-                            ->visible(fn (\Filament\Forms\Get $get) => in_array($get('metodo_pago'), ['Tarjeta de Débito', 'Tarjeta de Crédito', 'Transferencia SPEI'])),
+                            ->visible(fn (\Filament\Forms\Get $get) => in_array($get('metodo_pago'), ['Tarjeta de Débito', 'Tarjeta de Crédito', 'Transferencia SPEI']))
+                            ->columnSpan(['default' => 1, 'sm' => 1]),
 
                         \Filament\Forms\Components\Toggle::make('requiere_factura')
                             ->label('¿Genera Factura?')
                             ->inline(false)
                             ->columnSpanFull(),
-                    ])->columns(3),
+                    ])->columns(['default' => 1, 'sm' => 2]), // Responsivo: 1 col en móvil, 2 en PC
             ]);
     }
 
