@@ -247,7 +247,7 @@ class InspeccionResource extends Resource
                     ->weight('bold')
                     ->color('primary'),
 
-                // --- NUEVA COLUMNA CONCENTRADA ---
+// --- NUEVA COLUMNA CONCENTRADA ---
                 \Filament\Tables\Columns\TextColumn::make('vehiculo_info')
                     ->label('Vehículo')
                     ->getStateUsing(function (\App\Models\Inspeccion $record) {
@@ -256,16 +256,28 @@ class InspeccionResource extends Resource
 
                         return trim("{$vehiculo->marca} {$vehiculo->modelo} {$vehiculo->anio} - {$vehiculo->placas}");
                     })
+                    // Agrega el color y el nombre del cliente en líneas separadas
+                    ->description(function (\App\Models\Inspeccion $record) {
+                        $vehiculo = $record->ordenServicio?->vehiculo;
+                        if (!$vehiculo) return null;
+
+                        $color = $vehiculo->color ?: 'Sin color';
+                        $cliente = $vehiculo->cliente?->nombre ?: 'Sin cliente';
+
+                        return new \Illuminate\Support\HtmlString("Color: {$color}<br>Cliente: {$cliente}");
+                    })
                     ->searchable(query: function (\Illuminate\Database\Eloquent\Builder $query, string $search) {
-                        // Mantiene la barra de búsqueda funcional para cualquiera de los 4 datos
+                        // Buscador inteligente + Color + Cliente
                         $query->whereHas('ordenServicio.vehiculo', function ($q) use ($search) {
                             $q->where('marca', 'ilike', "%{$search}%")
                                 ->orWhere('modelo', 'ilike', "%{$search}%")
                                 ->orWhere('anio', 'ilike', "%{$search}%")
-                                ->orWhere('placas', 'ilike', "%{$search}%");
+                                ->orWhere('placas', 'ilike', "%{$search}%")
+                                ->orWhere('color', 'ilike', "%{$search}%") // Buscador por color agregado
+                                ->orWhereHas('cliente', fn ($q2) => $q2->where('nombre', 'ilike', "%{$search}%"));
                         });
                     })
-                    ->wrap(), // Permite que el texto baje de línea en celulares en lugar de cortarse o generar scroll
+                    ->wrap(),
 
                 // Columna que colapsa en móviles para evitar scroll horizontal
                 \Filament\Tables\Columns\TextColumn::make('created_at')

@@ -516,14 +516,45 @@ class OrdenServicioResource extends Resource
                     ->sortable()
                     ->color('primary')
                     ->weight('bold'),
-                \Filament\Tables\Columns\TextColumn::make('vehiculo.placas')
+
+                // --- NUEVA COLUMNA CONCENTRADA ---
+                \Filament\Tables\Columns\TextColumn::make('vehiculo_info')
                     ->label('Vehículo')
-                    ->searchable(),
+                    ->getStateUsing(function (\App\Models\OrdenServicio $record) {
+                        $vehiculo = $record->vehiculo;
+                        if (!$vehiculo) return 'Sin datos';
+
+                        return trim("{$vehiculo->marca} {$vehiculo->modelo} {$vehiculo->anio} - {$vehiculo->placas}");
+                    })
+                    // Agrega el color y el nombre del cliente en texto gris (muted)
+                    ->description(function (\App\Models\OrdenServicio $record) {
+                        $vehiculo = $record->vehiculo;
+                        if (!$vehiculo) return null;
+
+                        $color = $vehiculo->color ?: 'Sin color';
+                        $cliente = $vehiculo->cliente?->nombre ?: 'Sin cliente';
+
+                        return new \Illuminate\Support\HtmlString("Color: {$color}<br>Cliente: {$cliente}");
+                    })
+                    ->searchable(query: function (\Illuminate\Database\Eloquent\Builder $query, string $search) {
+                        // Buscador inteligente + Color + Cliente
+                        $query->whereHas('vehiculo', function ($q) use ($search) {
+                            $q->where('marca', 'ilike', "%{$search}%")
+                                ->orWhere('modelo', 'ilike', "%{$search}%")
+                                ->orWhere('anio', 'ilike', "%{$search}%")
+                                ->orWhere('placas', 'ilike', "%{$search}%")
+                                ->orWhere('color', 'ilike', "%{$search}%") // Buscador por color agregado
+                                ->orWhereHas('cliente', fn ($q2) => $q2->where('nombre', 'ilike', "%{$search}%"));
+                        });
+                    })
+                    ->wrap(),
+
                 \Filament\Tables\Columns\TextColumn::make('fecha_ingreso')
                     ->dateTime('d/m/Y h:i A')
                     ->sortable()
                     ->toggleable() // Permite ocultar/mostrar desde el menú de columnas
                     ->visibleFrom('md'), // Hace "collapse" ocultándose en celulares automáticamente
+
                 \Filament\Tables\Columns\BadgeColumn::make('estatus')
                     ->colors([
                         'gray' => 'Ingresado',
