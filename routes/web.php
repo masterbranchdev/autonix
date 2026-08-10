@@ -112,9 +112,11 @@ Route::get('/finanzas/corte', function (Request $request) {
     $formato = $request->formato;
 
     // Obtenemos las transacciones del periodo
-    $transacciones = Transaccion::where('taller_id', $tallerId)
-        ->whereBetween('fecha', [$inicio, $fin])
-        ->orderBy('fecha', 'asc')
+    $transacciones = Transaccion::where('taller_id', auth()->user()->taller_id)
+        ->with('cotizacion') // Optimización para no saturar la base de datos
+        ->whereBetween('fecha', [$request->desde, $request->hasta])
+        ->orderBy('fecha', 'desc') // Ordena por fecha más reciente
+        ->orderBy('id', 'desc')    // Desempata poniendo el cobro más reciente primero
         ->get();
 
     $ingresos = $transacciones->where('tipo', 'Ingreso')->sum('monto');
@@ -129,12 +131,23 @@ Route::get('/finanzas/corte', function (Request $request) {
             // Truco maestro: Agregar BOM UTF-8 para que Excel lea los acentos y "ñ" perfectamente
             fputs($file, "\xEF\xBB\xBF");
 
-            // Añadimos 'Estatus Factura' a los encabezados
-            fputcsv($file, ['Fecha', 'Tipo', 'Concepto', 'Metodo de Pago', 'Referencia', 'Requiere Factura', 'Estatus Factura', 'Monto']);
+            // Añadimos las nuevas columnas financieras al final
+            fputcsv($file, ['Fecha', 'Tipo', 'Concepto', 'Metodo de Pago', 'Referencia', 'Requiere Factura', 'Estatus Factura', 'Abono / Monto', 'Total Cotizacion', 'Restante']);
 
             // Filas
             foreach ($transacciones as $t) {
                 $fechaSegura = \Carbon\Carbon::parse($t->fecha)->format('Y-m-d');
+
+                // Lógica de cálculo de saldos
+                $totalCotizacion = '-';
+                $restante = '-';
+
+                if ($t->cotizacion) {
+                    $totalCotizacion = $t->cotizacion->total;
+                    $pagado = \App\Models\Transaccion::where('cotizacion_id', $t->cotizacion_id)->sum('monto');
+                    $saldoRestante = $t->cotizacion->total - $pagado;
+                    $restante = max(0, $saldoRestante); // Evita números negativos
+                }
 
                 fputcsv($file, [
                     $fechaSegura,
@@ -143,8 +156,10 @@ Route::get('/finanzas/corte', function (Request $request) {
                     $t->metodo_pago,
                     $t->referencia ?? 'N/A',
                     $t->requiere_factura ? 'SÍ' : 'NO',
-                    $t->estado_factura ?? 'No Facturado', // Agregamos el estatus fiscal a Excel
-                    $t->monto
+                    $t->estado_factura ?? 'No Facturado',
+                    $t->monto,
+                    $totalCotizacion,
+                    $restante
                 ]);
             }
             fclose($file);

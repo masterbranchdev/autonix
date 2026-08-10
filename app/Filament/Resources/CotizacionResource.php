@@ -411,96 +411,111 @@ class CotizacionResource extends Resource
                         }),
 
                     \Filament\Tables\Actions\Action::make('cobrar')
-                        ->label('Cobrar')
+                        ->label('Cobrar / Anticipo')
                         ->icon('heroicon-o-banknotes')
                         ->color('success')
-                        ->hidden(fn (\App\Models\Cotizacion $record) => is_null($record->orden_servicio_id))
-                        ->modalHeading(fn (\App\Models\Cotizacion $record) => 'Cobrar Folio: ' . $record->folio)
-                        ->modalDescription('Confirme el método de pago y registre el folio de rastreo si aplica.')
+                        // 1. Ocultamos el botón si no hay orden, o si ya se pagó el 100% del total
+                        ->hidden(function (\App\Models\Cotizacion $record) {
+                            if (is_null($record->orden_servicio_id)) return true;
+
+                            $pagado = \App\Models\Transaccion::where('cotizacion_id', $record->id)->sum('monto');
+                            return $pagado >= ($record->total - 0.01); // Margen de error para decimales
+                        })
+                        ->modalHeading(fn (\App\Models\Cotizacion $record) => 'Registrar Pago / Anticipo (Folio: ' . $record->folio . ')')
+                        ->modalDescription('Registra el monto que el cliente está pagando en este momento. Puedes registrar múltiples pagos (efectivo y tarjeta) o anticipos.')
                         ->modalSubmitActionLabel('Registrar Ingreso')
-                        ->form([
-                            \Filament\Forms\Components\TextInput::make('monto_a_cobrar')
-                                ->label('Monto Total a Cobrar')
-                                ->default(fn (\App\Models\Cotizacion $record) => $record->total)
-                                ->disabled()
-                                ->numeric()
-                                ->prefix('$'),
+                        // 2. Usamos una función en el form para calcular en tiempo real los saldos
+                        ->form(function (\App\Models\Cotizacion $record) {
+                            $montoPagado = \App\Models\Transaccion::where('cotizacion_id', $record->id)->sum('monto');
+                            $saldoPendiente = round($record->total - $montoPagado, 2);
 
-                            \Filament\Forms\Components\Select::make('metodo_pago')
-                                ->label('Método de Pago')
-                                ->options([
-                                    'Efectivo' => 'Efectivo',
-                                    'Tarjeta de Débito' => 'Tarjeta de Débito',
-                                    'Tarjeta de Crédito' => 'Tarjeta de Crédito',
-                                    'Transferencia SPEI' => 'Transferencia SPEI',
-                                ])
-                                ->required()
-                                ->live(),
+                            return [
+                                // Tarjeta visual para que la secretaria no tenga que usar calculadora
+                                \Filament\Forms\Components\Placeholder::make('resumen_saldos')
+                                    ->hiddenLabel()
+                                    ->content(new \Illuminate\Support\HtmlString("
+                                        <div style='display: flex; justify-content: space-between; background: #f3f4f6; padding: 12px; border-radius: 8px; margin-bottom: 10px; text-align: center;'>
+                                            <div><span style='font-size: 0.75rem; font-weight: bold; text-transform: uppercase; color: #6b7280;'>Total Cotización</span><br><strong style='color: #1f2937; font-size: 1.1rem;'>$" . number_format($record->total, 2) . "</strong></div>
+                                            <div><span style='font-size: 0.75rem; font-weight: bold; text-transform: uppercase; color: #6b7280;'>Abonado</span><br><strong style='color: #10b981; font-size: 1.1rem;'>$" . number_format($montoPagado, 2) . "</strong></div>
+                                            <div><span style='font-size: 0.75rem; font-weight: bold; text-transform: uppercase; color: #6b7280;'>Saldo Restante</span><br><strong style='color: #ef4444; font-size: 1.1rem;'>$" . number_format($saldoPendiente, 2) . "</strong></div>
+                                        </div>
+                                    ")),
 
-                            \Filament\Forms\Components\TextInput::make('referencia')
-                                ->label('Número de Referencia / Autorización')
-                                ->placeholder('Ej. 0928374')
-                                ->required(fn (\Filament\Forms\Get $get) => in_array($get('metodo_pago'), ['Tarjeta de Débito', 'Tarjeta de Crédito', 'Transferencia SPEI']))
-                                ->visible(fn (\Filament\Forms\Get $get) => in_array($get('metodo_pago'), ['Tarjeta de Débito', 'Tarjeta de Crédito', 'Transferencia SPEI'])),
+                                \Filament\Forms\Components\TextInput::make('monto_a_cobrar')
+                                    ->label('Monto a Cobrar (En esta transacción)')
+                                    ->default($saldoPendiente)
+                                    ->numeric()
+                                    ->prefix('$')
+                                    ->maxValue($saldoPendiente) // Impide que cobren más de lo que se debe
+                                    ->required(),
 
-                            // --- NUEVO: CUADRO DE ADVERTENCIA PARA IMPUESTOS ---
-                            \Filament\Forms\Components\Placeholder::make('alerta_impuestos')
-                                ->hiddenLabel()
-                                ->content(new \Illuminate\Support\HtmlString('
-                                    <div style="background-color: #fef2f2; border-left: 4px solid #dc2626; color: #991b1b; padding: 12px; border-radius: 4px;">
-                                        <strong>⚠️ Facturación</strong><br>
-                                        Debido a que esta cotización incluye impuestos (IVA / Retención ISR), se marcará la solicitud de factura en Caja y Finanzas.
-                                    </div>
-                                '))
-                                ->visible(fn (\App\Models\Cotizacion $record) => $record->iva > 0 || $record->retencion_isr > 0)
-                                ->columnSpanFull(),
-//
-//                            // --- TOGGLE TRADICIONAL (Solo visible si NO hay impuestos) ---
-//                            \Filament\Forms\Components\Toggle::make('requiere_factura')
-//                                ->label('El cliente solicita Factura (CFDI)')
-//                                ->inline(false)
-//                                ->onColor('success')
-//                                ->visible(fn (\App\Models\Cotizacion $record) => $record->iva <= 0 && $record->retencion_isr <= 0)
-//                                ->columnSpanFull(),
-                        ])
+                                \Filament\Forms\Components\Select::make('metodo_pago')
+                                    ->label('Método de Pago')
+                                    ->options([
+                                        'Efectivo' => 'Efectivo',
+                                        'Tarjeta de Débito' => 'Tarjeta de Débito',
+                                        'Tarjeta de Crédito' => 'Tarjeta de Crédito',
+                                        'Transferencia SPEI' => 'Transferencia SPEI',
+                                    ])
+                                    ->required()
+                                    ->live(),
+
+                                \Filament\Forms\Components\TextInput::make('referencia')
+                                    ->label('Número de Referencia / Autorización')
+                                    ->placeholder('Ej. 0928374')
+                                    ->required(fn (\Filament\Forms\Get $get) => in_array($get('metodo_pago'), ['Tarjeta de Débito', 'Tarjeta de Crédito', 'Transferencia SPEI']))
+                                    ->visible(fn (\Filament\Forms\Get $get) => in_array($get('metodo_pago'), ['Tarjeta de Débito', 'Tarjeta de Crédito', 'Transferencia SPEI'])),
+
+                                \Filament\Forms\Components\Placeholder::make('alerta_impuestos')
+                                    ->hiddenLabel()
+                                    ->content(new \Illuminate\Support\HtmlString('
+                                        <div style="background-color: #fef2f2; border-left: 4px solid #dc2626; color: #991b1b; padding: 12px; border-radius: 4px;">
+                                            <strong>⚠️ Facturación</strong><br>
+                                            Debido a que esta cotización incluye impuestos (IVA / Retención ISR), se marcará la solicitud de factura en Caja y Finanzas.
+                                        </div>
+                                    '))
+                                    ->visible(fn (\App\Models\Cotizacion $record) => $record->iva > 0 || $record->retencion_isr > 0)
+                                    ->columnSpanFull(),
+                            ];
+                        })
                         ->action(function (\App\Models\Cotizacion $record, array $data) {
-                            $transaccionPrevia = \App\Models\Transaccion::where('taller_id', $record->taller_id)
-                                ->where('cotizacion_id', $record->id)
-                                ->first();
-
-                            if ($transaccionPrevia) {
-                                \Filament\Notifications\Notification::make()
-                                    ->title('Pago ya registrado')
-                                    ->body('Ya existe una transacción para esta cotización. Por favor, borre el ingreso previo en el módulo de Caja y Finanzas antes de intentar cobrar de nuevo.')
-                                    ->danger()
-                                    ->send();
-                                return;
-                            }
-
-                            // 1. Evaluamos de forma 100% segura por backend si requiere factura
                             $debeFacturar = ($record->iva > 0 || $record->retencion_isr > 0) ? true : ($data['requiere_factura'] ?? false);
 
+                            // 3. Registramos la transacción por el monto específico que dictó la secretaria
                             \App\Models\Transaccion::create([
                                 'taller_id' => $record->taller_id,
                                 'cotizacion_id' => $record->id,
                                 'tipo' => 'Ingreso',
-                                'concepto' => "Pago de cotización: {$record->folio} orden de servicio: {$record->ordenServicio->folio}",
-                                'monto' => $record->total,
+                                'concepto' => "Abono/Pago de cotización: {$record->folio} orden: {$record->ordenServicio->folio} (" . $data['metodo_pago'] . ")",
+                                'monto' => $data['monto_a_cobrar'],
                                 'metodo_pago' => $data['metodo_pago'],
                                 'referencia' => $data['referencia'] ?? null,
-                                // 2. Guardamos el valor calculado
                                 'requiere_factura' => $debeFacturar,
                                 'fecha' => now(),
                             ]);
 
-                            $record->update([
-                                'pagado' => true,
-                                'estatus' => 'Aprobada'
-                            ]);
+                            // 4. Volvemos a sumar todas las transacciones de esta cotización para ver si ya se liquidó
+                            $montoTotalPagado = \App\Models\Transaccion::where('cotizacion_id', $record->id)->sum('monto');
+
+                            // Si la suma de pagos cubre el total de la cotización...
+                            if ($montoTotalPagado >= ($record->total - 0.01)) {
+                                $record->update([
+                                    'pagado' => true,
+                                    'estatus' => 'Aprobada'
+                                ]);
+                                $mensaje = 'Se ha liquidado el total de la cotización exitosamente.';
+                            } else {
+                                // Si aún falta dinero (Anticipo o cobro dividido)
+                                $record->update([
+                                    'estatus' => 'Aprobada' // Si dejaron dinero, asumimos que aprueban el trabajo
+                                ]);
+                                $restante = $record->total - $montoTotalPagado;
+                                $mensaje = 'Abono registrado. Queda un saldo pendiente de $' . number_format($restante, 2) . '.';
+                            }
 
                             \Filament\Notifications\Notification::make()
-                                ->title('¡Cobro exitoso!')
-                                ->body('El ingreso y la referencia se han guardado correctamente.')
+                                ->title('¡Ingreso registrado!')
+                                ->body($mensaje)
                                 ->success()
                                 ->send();
                         }),

@@ -110,9 +110,26 @@ class TransaccionResource extends Resource
                     ->wrap(),
 
                 \Filament\Tables\Columns\TextColumn::make('monto')
+                    ->label('Abono / Monto')
                     ->money('MXN')
                     ->weight('bold')
-                    ->sortable(),
+                    ->sortable()
+                    ->description(function (\App\Models\Transaccion $record) {
+                        if ($record->cotizacion) {
+                            $pagado = \App\Models\Transaccion::where('cotizacion_id', $record->cotizacion_id)->sum('monto');
+                            $restante = max(0, $record->cotizacion->total - $pagado);
+
+                            // Determinamos el color: Rojo (#ef4444) si debe, Verde (#10b981) si ya liquidó
+                            $colorRestante = $restante > 0 ? '#ef4444' : '#10b981';
+
+                            // Retornamos HTML para forzar el salto de línea (<br>) y pintar el texto
+                            return new \Illuminate\Support\HtmlString(
+                                'Total: $' . number_format($record->cotizacion->total, 2) . '<br>' .
+                                '<span style="color: ' . $colorRestante . '; font-weight: 600;">Resta: $' . number_format($restante, 2) . '</span>'
+                            );
+                        }
+                        return null;
+                    }),
 
                 \Filament\Tables\Columns\TextColumn::make('metodo_pago')
                     ->label('Método')
@@ -230,9 +247,7 @@ class TransaccionResource extends Resource
                         ->url(fn (\App\Models\Transaccion $record) => route('descargar.factura.xml', $record->id))
                         ->openUrlInNewTab(),
 
-                    // --- NUEVO: BOTÓN DE CANCELACIÓN DE FACTURA ---
-                    // --- BOTÓN DE CANCELACIÓN DE FACTURA (CORREGIDO) ---
-                    // --- BOTÓN DE CANCELACIÓN DE FACTURA (Basado en Docs de Fiscal API) ---
+
                     // --- BOTÓN DE CANCELACIÓN DE FACTURA (JSON STRICT MODE) ---
                     \Filament\Tables\Actions\Action::make('cancelar_factura')
                         ->label('Cancelar CFDI')
@@ -282,9 +297,17 @@ class TransaccionResource extends Resource
                                     $invoiceUuids = $response->json('data.invoiceUuids') ?? [];
                                     $codigoSat = !empty($invoiceUuids) ? reset($invoiceUuids) : null;
 
-                                    $record->update([
-                                        'estado_factura' => 'Cancelada',
-                                    ]);
+                                    // --- MAGIA: Actualizamos todas las transacciones de esta cotización ---
+                                    if ($record->cotizacion_id) {
+                                        \App\Models\Transaccion::where('cotizacion_id', $record->cotizacion_id)
+                                            ->update([
+                                                'estado_factura' => 'Cancelada',
+                                            ]);
+                                    } else {
+                                        $record->update([
+                                            'estado_factura' => 'Cancelada',
+                                        ]);
+                                    }
 
                                     $mensaje = 'La factura ha sido cancelada en el sistema.';
                                     if ($codigoSat) {
@@ -495,10 +518,19 @@ class TransaccionResource extends Resource
                                     $factura = $response->json();
                                     $fiscalApiId = $factura['data']['id'];
 
-                                    $record->update([
-                                        'estado_factura' => 'Timbrada',
-                                        'factura_id' => $fiscalApiId,
-                                    ]);
+                                    // --- MAGIA: Marcamos todas las transacciones parciales como timbradas con el mismo folio ---
+                                    if ($record->cotizacion_id) {
+                                        \App\Models\Transaccion::where('cotizacion_id', $record->cotizacion_id)
+                                            ->update([
+                                                'estado_factura' => 'Timbrada',
+                                                'factura_id' => $fiscalApiId,
+                                            ]);
+                                    } else {
+                                        $record->update([
+                                            'estado_factura' => 'Timbrada',
+                                            'factura_id' => $fiscalApiId,
+                                        ]);
+                                    }
 
                                     \Filament\Notifications\Notification::make()->title('¡Factura Timbrada!')->success()->send();
                                 } else {
