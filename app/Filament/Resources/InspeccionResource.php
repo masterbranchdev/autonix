@@ -280,7 +280,11 @@ class InspeccionResource extends Resource
                         ->label('WhatsApp')
                         ->icon('heroicon-o-chat-bubble-left-right')
                         ->color('success')
-                        ->hidden(fn (\App\Models\Inspeccion $record) => is_null($record->orden_servicio_id))
+                        // Sustituimos hidden() por visible() para agregar la validación del rol
+                        ->visible(fn (\App\Models\Inspeccion $record) =>
+                            !is_null($record->orden_servicio_id) &&
+                            auth()->user()->hasRole(['Admin Taller', 'admin taller', 'super_admin'])
+                        )
                         ->url(function (\App\Models\Inspeccion $record) {
                             $orden = $record->ordenServicio;
                             $vehiculo = $orden->vehiculo;
@@ -298,6 +302,84 @@ class InspeccionResource extends Resource
                             return 'https://api.whatsapp.com/send?phone=' . $telefono . '&text=' . urlencode($mensaje);
                         })
                         ->openUrlInNewTab(),
+
+                    // --- BOTÓN PARA EVIDENCIA FOTOGRÁFICA ---
+                    \Filament\Tables\Actions\Action::make('evidencia')
+                        ->label('Fotos')
+                        ->icon('heroicon-o-camera')
+                        ->color('info')
+                        ->modalHeading('Evidencia Fotográfica del Servicio')
+                        ->modalDescription('Sube hasta 5 fotografías.')
+                        ->modalWidth('3xl')
+                        ->fillForm(fn (\App\Models\Inspeccion $record): array => [
+                            'evidencia_fotografica' => $record->evidencia_fotografica,
+                        ])
+                        ->form([
+                            \Filament\Forms\Components\Repeater::make('evidencia_fotografica')
+                                ->hiddenLabel()
+                                ->schema([
+                                    \Filament\Forms\Components\FileUpload::make('foto')
+                                        ->label('Fotografía')
+                                        ->image()
+                                        ->imageEditor()
+                                        ->disk('s3')
+                                        ->visibility('public')
+                                        ->moveFiles()
+                                        ->directory(function (\App\Models\Inspeccion $record) {
+                                            $folio = $record->ordenServicio->folio;
+                                            return "evidencia_ordenes/{$folio}";
+                                        })
+                                        ->getUploadedFileNameForStorageUsing(
+                                            function (\Illuminate\Http\UploadedFile $file, \App\Models\Inspeccion $record) {
+                                                $extension = $file->getClientOriginalExtension();
+                                                $timestamp = uniqid();
+                                                $folio = $record->ordenServicio->folio;
+                                                return "evidencia_{$folio}_{$timestamp}.{$extension}";
+                                            }
+                                        )
+                                        ->imageResizeMode('cover')
+                                        ->imageResizeTargetWidth(1080)
+                                        ->imageResizeTargetHeight(1080)
+                                        ->required()
+                                        ->columnSpan(2),
+
+                                    \Filament\Forms\Components\TextInput::make('observacion')
+                                        ->label('Observación (Opcional)')
+                                        ->placeholder('Ej. Banda de tiempo desgastada')
+                                        ->maxLength(255)
+                                        ->columnSpan(2),
+                                ])
+                                ->columns(2)
+                                ->addActionLabel('Añadir Fotografía')
+                                ->maxItems(5)
+                                ->grid(2)
+                                ->columnSpanFull(),
+                        ])
+
+
+                        ->action(function (\App\Models\Inspeccion $record, array $data): void {
+                            $viejasEvidencias = $record->evidencia_fotografica ?? [];
+                            $nuevasEvidencias = $data['evidencia_fotografica'] ?? [];
+
+                            $fotosViejas = collect($viejasEvidencias)->pluck('foto')->filter()->toArray();
+                            $fotosNuevas = collect($nuevasEvidencias)->pluck('foto')->filter()->toArray();
+
+                            $fotosABorrar = array_diff($fotosViejas, $fotosNuevas);
+
+                            if (!empty($fotosABorrar)) {
+                                \Illuminate\Support\Facades\Storage::disk('s3')->delete($fotosABorrar);
+                            }
+
+                            $record->update([
+                                'evidencia_fotografica' => $nuevasEvidencias,
+                            ]);
+
+                            \Filament\Notifications\Notification::make()
+                                ->title('Galería actualizada correctamente')
+                                ->success()
+                                ->send();
+                        }),
+
 
                 ])
                     ->label('Opciones')

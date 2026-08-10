@@ -15,6 +15,7 @@ class Inspeccion extends Model
         'balatas' => 'array',
         'adicionales' => 'array',
         'bateria' => 'array',
+        'evidencia_fotografica' => 'array',
     ];
 
     public function ordenServicio()
