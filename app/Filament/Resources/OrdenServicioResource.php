@@ -717,6 +717,31 @@ class OrdenServicioResource extends Resource
                         })
                         ->openUrlInNewTab(),
 
+                    // --- BOTÓN EXCLUSIVO PARA AVISAR QUE ESTÁ LISTO ---
+                    \Filament\Tables\Actions\Action::make('notificar_listo')
+                        ->label('Avisar que está Listo')
+                        ->icon('heroicon-o-bell-alert')
+                        ->color('success')
+                        // Solo es visible si el estatus es "Listo"
+                        ->visible(fn (\App\Models\OrdenServicio $record) => $record->estatus === 'Listo')
+                        ->url(function (\App\Models\OrdenServicio $record) {
+                            $vehiculo = $record->vehiculo;
+                            $cliente = $vehiculo->cliente;
+                            $taller = $record->taller;
+
+                            $telefono = preg_replace('/[^0-9]/', '', $cliente->telefono);
+                            if (strlen($telefono) == 10) { $telefono = '52' . $telefono; }
+
+                            $horario = $taller->horario_atencion ?? '-';
+                            $nombreTaller = $taller ? $taller->nombre_comercial : 'Autonix';
+                            $link = route('portal.status', $record->token_url);
+
+                            $mensaje = "¡Hola *{$cliente->nombre}*, tenemos excelentes noticias! 👨‍🔧\n\nTu *{$vehiculo->marca} {$vehiculo->modelo}* ya se encuentra *LISTO* para entrega en *{$nombreTaller}*.\n\nPuedes revisar los detalles finales en tu Expediente Digital aquí:\n👉 {$link}\n\n*Horario de atención: {$horario}.* ¡Te esperamos!";
+
+                            return 'https://api.whatsapp.com/send?phone=' . $telefono . '&text=' . urlencode($mensaje);
+                        })
+                        ->openUrlInNewTab(),
+
                     \Filament\Tables\Actions\Action::make('link')
                         ->label('Link status')
                         ->icon('heroicon-o-globe-alt')
