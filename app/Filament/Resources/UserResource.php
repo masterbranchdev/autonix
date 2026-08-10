@@ -80,6 +80,14 @@ class UserResource extends Resource
                             ->searchable()
                             ->required(),
 
+                        Forms\Components\Toggle::make('activo')
+                            ->label('Usuario Activo (Permitir acceso al sistema)')
+                            ->default(true)
+                            ->onColor('success')
+                            ->offColor('danger')
+                            ->inline(false)
+                            ->columnSpanFull(),
+
                     ])->columns(2)
             ]);
     }
@@ -107,6 +115,14 @@ class UserResource extends Resource
                     ->searchable()
                     ->visibleFrom('md'), // Se oculta en celulares, visible desde tablets
 
+                Tables\Columns\IconColumn::make('activo')
+                    ->label('Acceso')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-check-circle')
+                    ->falseIcon('heroicon-o-x-circle')
+                    ->trueColor('success')
+                    ->falseColor('danger'),
+
                 Tables\Columns\TextColumn::make('taller.nombre_comercial')
                     ->label('Taller')
                     ->badge()
@@ -129,6 +145,13 @@ class UserResource extends Resource
                     ->relationship('taller', 'nombre_comercial')
                     ->searchable()
                     ->preload(),
+
+                Tables\Filters\TernaryFilter::make('activo')
+                    ->label('Estado de Acceso')
+                    ->placeholder('Todos')
+                    ->trueLabel('Solo Activos')
+                    ->falseLabel('Suspendidos / Bloqueados'),
+
             ])
             ->actions([
                 Tables\Actions\ActionGroup::make([
