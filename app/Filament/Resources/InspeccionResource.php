@@ -247,9 +247,25 @@ class InspeccionResource extends Resource
                     ->weight('bold')
                     ->color('primary'),
 
-                \Filament\Tables\Columns\TextColumn::make('ordenServicio.vehiculo.placas')
-                    ->label('Placas')
-                    ->searchable(),
+                // --- NUEVA COLUMNA CONCENTRADA ---
+                \Filament\Tables\Columns\TextColumn::make('vehiculo_info')
+                    ->label('Vehículo')
+                    ->getStateUsing(function (\App\Models\Inspeccion $record) {
+                        $vehiculo = $record->ordenServicio?->vehiculo;
+                        if (!$vehiculo) return 'Sin datos';
+
+                        return trim("{$vehiculo->marca} {$vehiculo->modelo} {$vehiculo->anio} - {$vehiculo->placas}");
+                    })
+                    ->searchable(query: function (\Illuminate\Database\Eloquent\Builder $query, string $search) {
+                        // Mantiene la barra de búsqueda funcional para cualquiera de los 4 datos
+                        $query->whereHas('ordenServicio.vehiculo', function ($q) use ($search) {
+                            $q->where('marca', 'ilike', "%{$search}%")
+                                ->orWhere('modelo', 'ilike', "%{$search}%")
+                                ->orWhere('anio', 'ilike', "%{$search}%")
+                                ->orWhere('placas', 'ilike', "%{$search}%");
+                        });
+                    })
+                    ->wrap(), // Permite que el texto baje de línea en celulares en lugar de cortarse o generar scroll
 
                 // Columna que colapsa en móviles para evitar scroll horizontal
                 \Filament\Tables\Columns\TextColumn::make('created_at')
