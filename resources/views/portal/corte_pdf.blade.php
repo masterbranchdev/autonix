@@ -102,17 +102,31 @@
     <table class="details">
         <thead>
         <tr>
-            <th style="width: 10%;">FECHA</th>
-            <th style="width: 8%;">TIPO</th>
-            <th style="width: 30%;">CONCEPTO / DESCRIPCIÓN</th>
-            <th style="width: 12%;">MÉTODO</th>
-            <th style="width: 13%;">REFERENCIA</th>
-            <th style="width: 12%; text-align: center;">FACTURACIÓN</th>
-            <th style="width: 15%; text-align:right;">MONTO</th>
+            <th style="width: 8%;">FECHA</th>
+            <th style="width: 6%;">TIPO</th>
+            <th style="width: 25%;">CONCEPTO / DESCRIPCIÓN</th>
+            <th style="width: 9%;">MÉTODO</th>
+            <th style="width: 10%;">REFERENCIA</th>
+            <th style="width: 9%; text-align: center;">FACTURA</th>
+            <th style="width: 11%; text-align:right;">ABONO</th>
+            <th style="width: 11%; text-align:right;">TOTAL</th>
+            <th style="width: 11%; text-align:right;">RESTA</th>
         </tr>
         </thead>
         <tbody>
         @foreach($transacciones as $t)
+            @php
+                $totalCotizacion = '-';
+                $restante = '-';
+                $saldoRestante = 0;
+
+                if ($t->cotizacion) {
+                    $totalCotizacion = '$' . number_format($t->cotizacion->total, 2);
+                    $pagado = \App\Models\Transaccion::where('cotizacion_id', $t->cotizacion_id)->sum('monto');
+                    $saldoRestante = max(0, $t->cotizacion->total - $pagado);
+                    $restante = '$' . number_format($saldoRestante, 2);
+                }
+            @endphp
             <tr class="{{ $t->tipo == 'Ingreso' ? 'row-ingreso' : 'row-egreso' }}">
                 <td>{{ date('d/m/Y', strtotime($t->fecha)) }}</td>
                 <td class="{{ $t->tipo == 'Ingreso' ? 'text-green' : 'text-red' }}"><strong>{{ $t->tipo }}</strong></td>
@@ -137,6 +151,14 @@
 
                 <td style="text-align:right; font-weight:bold; font-size: 10px;">
                     {{ $t->tipo == 'Ingreso' ? '+' : '-' }}${{ number_format($t->monto, 2) }}
+                </td>
+
+                <td style="text-align:right; font-size: 10px; color: #475569;">
+                    {{ $totalCotizacion }}
+                </td>
+
+                <td style="text-align:right; font-weight:bold; font-size: 10px; {{ $t->cotizacion && $saldoRestante > 0 ? 'color: #dc2626;' : 'color: #16a34a;' }}">
+                    {{ $restante }}
                 </td>
             </tr>
         @endforeach
