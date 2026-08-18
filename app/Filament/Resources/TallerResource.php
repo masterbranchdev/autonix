@@ -77,7 +77,8 @@ class TallerResource extends Resource
                             ->label('Plan Contratado')
                             ->options([
                                 'Demo' => '🚀 En Periodo de Prueba (Demo)',
-                                'Avanzado' => '🔵 Avanzado',
+                                'Control' => '🔵 Control',
+                                'Pro' => '🔵 Pro',
                                 'Agencia' => '🚘 Agencia',
                             ])
                             ->default('prueba')
