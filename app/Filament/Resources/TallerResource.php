@@ -78,7 +78,7 @@ class TallerResource extends Resource
                             ->options([
                                 'Demo' => '🚀 En Periodo de Prueba (Demo)',
                                 'Control' => '🔵 Control',
-                                'Pro' => '🔵 Pro',
+                                'Pro' => '🏁 Pro',
                                 'Agencia' => '🚘 Agencia',
                             ])
                             ->default('Demo')
