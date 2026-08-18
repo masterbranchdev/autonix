@@ -81,7 +81,7 @@ class TallerResource extends Resource
                                 'Pro' => '🔵 Pro',
                                 'Agencia' => '🚘 Agencia',
                             ])
-                            ->default('prueba')
+                            ->default('Demo')
                             ->required(),
 
                         Forms\Components\DateTimePicker::make('fecha_suscripcion')
