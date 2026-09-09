@@ -161,7 +161,27 @@
 
     <!-- NUEVA GALERÍA DE EVIDENCIA FOTOGRÁFICA -->
     <!-- EVIDENCIA FOTOGRÁFICA (Estilo Agencia Premium) -->
-    @if(!empty($orden->evidencia_fotografica))
+    @php
+        $todasLasEvidencias = [];
+
+        // 1. Extraemos las evidencias directas de la Orden de Servicio
+        if (!empty($orden->evidencia_fotografica)) {
+            foreach ($orden->evidencia_fotografica as $ev) {
+                $todasLasEvidencias[] = $ev;
+            }
+        }
+
+        // 2. Extraemos las evidencias de la(s) Inspección(es) ligada(s)
+        foreach ($orden->inspecciones as $inspeccion) {
+            if (!empty($inspeccion->evidencia_fotografica)) {
+                foreach ($inspeccion->evidencia_fotografica as $ev) {
+                    $todasLasEvidencias[] = $ev;
+                }
+            }
+        }
+    @endphp
+
+    @if(count($todasLasEvidencias) > 0)
         <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden mt-6">
 
             <!-- Encabezado Premium -->
@@ -178,17 +198,17 @@
                     </h3>
                 </div>
                 <span class="bg-white border border-slate-200 text-slate-500 text-[10px] py-1 px-3 rounded-full font-black tracking-widest shadow-sm">
-            {{ count($orden->evidencia_fotografica) }} {{ count($orden->evidencia_fotografica) == 1 ? 'FOTO' : 'FOTOS' }}
+            {{ count($todasLasEvidencias) }} {{ count($todasLasEvidencias) == 1 ? 'FOTO' : 'FOTOS' }}
         </span>
             </div>
 
             <!-- Galería Dinámica -->
             <div class="p-5">
                 <div class="grid grid-cols-2 gap-4">
-                    @foreach($orden->evidencia_fotografica as $index => $evidencia)
+                    @foreach($todasLasEvidencias as $index => $evidencia)
                         <a href="{{ Storage::disk('s3')->url($evidencia['foto']) }}" target="_blank"
                            class="group relative rounded-2xl overflow-hidden bg-slate-100 shadow-sm ring-1 ring-slate-200/60 hover:ring-blue-400 transition-all duration-300 block
-                   {{ $index === 0 && count($orden->evidencia_fotografica) % 2 !== 0 ? 'col-span-2 aspect-video' : 'aspect-square' }}">
+                   {{ $index === 0 && count($todasLasEvidencias) % 2 !== 0 ? 'col-span-2 aspect-video' : 'aspect-square' }}">
 
                             <!-- Imagen con Zoom Cinemático -->
                             <img src="{{ Storage::disk('s3')->url($evidencia['foto']) }}" alt="Evidencia Técnica"

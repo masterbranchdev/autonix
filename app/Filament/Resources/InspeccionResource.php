@@ -168,6 +168,73 @@ class InspeccionResource extends Resource
                                         ]),
                                     ]),
                             ]),
+
+
+                        // TAB 4: EVIDENCIA FOTOGRÁFICA
+                        \Filament\Forms\Components\Tabs\Tab::make('Evidencia Fotográfica')
+                            ->icon('heroicon-o-camera')
+                            ->schema([
+                                \Filament\Forms\Components\Repeater::make('evidencia_fotografica')
+                                    ->hiddenLabel()
+                                    ->schema([
+                                        \Filament\Forms\Components\FileUpload::make('foto')
+                                            ->label('Fotografía')
+                                            ->image()
+                                            ->imageEditor()
+                                            ->disk('s3')
+                                            ->visibility('public')
+                                            ->moveFiles()
+                                            ->directory(function (?\App\Models\Inspeccion $record, \Filament\Forms\Get $get) {
+                                                // Si el registro ya existe (al editar)
+                                                if ($record && $record->ordenServicio) {
+                                                    return "evidencia_ordenes/{$record->ordenServicio->folio}";
+                                                }
+                                                // Si es una nueva inspección, atrapamos el ID de la orden desde el select
+                                                $ordenId = $get('../../orden_servicio_id');
+                                                if ($ordenId) {
+                                                    $orden = \App\Models\OrdenServicio::find($ordenId);
+                                                    if ($orden) return "evidencia_ordenes/{$orden->folio}";
+                                                }
+                                                return "evidencia_ordenes/sin_asignar";
+                                            })
+                                            ->getUploadedFileNameForStorageUsing(
+                                                function (\Illuminate\Http\UploadedFile $file, ?\App\Models\Inspeccion $record, \Filament\Forms\Get $get) {
+                                                    $extension = $file->getClientOriginalExtension();
+                                                    $timestamp = uniqid();
+
+                                                    $folio = 'sin_asignar';
+                                                    if ($record && $record->ordenServicio) {
+                                                        $folio = $record->ordenServicio->folio;
+                                                    } else {
+                                                        $ordenId = $get('../../orden_servicio_id');
+                                                        if ($ordenId) {
+                                                            $orden = \App\Models\OrdenServicio::find($ordenId);
+                                                            if ($orden) $folio = $orden->folio;
+                                                        }
+                                                    }
+
+                                                    return "evidencia_{$folio}_{$timestamp}.{$extension}";
+                                                }
+                                            )
+                                            ->imageResizeMode('cover')
+                                            ->imageResizeTargetWidth(1080)
+                                            ->imageResizeTargetHeight(1080)
+                                            ->required()
+                                            ->columnSpan(2),
+
+                                        \Filament\Forms\Components\TextInput::make('observacion')
+                                            ->label('Observación (Opcional)')
+                                            ->placeholder('Ej. Banda de tiempo desgastada')
+                                            ->maxLength(255)
+                                            ->columnSpan(2),
+                                    ])
+                                    ->columns(2)
+                                    ->addActionLabel('Añadir Fotografía')
+                                    ->maxItems(5)
+                                    ->grid(2)
+                                    ->columnSpanFull(),
+                            ]),
+
                     ])->columnSpanFull(),
 
                 // FIRMA DEL CLIENTE
