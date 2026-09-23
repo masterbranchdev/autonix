@@ -54,12 +54,14 @@ Route::get('/status/{token}', function ($token) {
         ->with([
             'vehiculo.cliente',
             'taller',
+            'inspecciones',
             'cotizaciones' => function($query) {
                 $query->whereIn('estatus', ['Enviada', 'Aprobada']);
             },
             // Cargamos el historial de tooooodas las órdenes previas de ese auto
+            // (con sus inspecciones, para evitar una query extra por cada una en la vista)
             'vehiculo.ordenesServicio' => function($query) {
-                $query->orderBy('created_at', 'desc');
+                $query->orderBy('created_at', 'desc')->with('inspecciones');
             }
         ])
         ->firstOrFail();

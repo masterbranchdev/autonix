@@ -3,11 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow, noarchive">
     <title>Expediente Digital - {{ $orden->vehiculo->placas }}</title>
     <link rel="icon" href="{{ asset('img/autonix_logo_solo.png') }}">
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
+        [x-cloak] { display: none !important; }
         .tracker-step { transition: all 0.3s ease; }
         .tracker-active { background-color: #CC7B2E; color: white; border-color: #CC7B2E; }
         .tracker-done { background-color: #6b7c8d; color: white; border-color: #6b7c8d; }
@@ -23,41 +25,92 @@
     $vehiculo = $orden->vehiculo;
     $cliente = $vehiculo->cliente;
 
-    // Mapeo lógico de los estatus para el Tracker
-    $estatusActual = strtolower($orden->estatus);
+    // Mapeo del estatus (texto libre en Filament) al paso del Tracker
+    $estatusOriginal = trim((string) $orden->estatus);
+    $estatusActual = \Illuminate\Support\Str::lower($estatusOriginal);
 
     $pasos = [
         ['id' => 'ingresado', 'label' => 'Ingresado', 'icon' => '📋'],
         ['id' => 'diagnosticando', 'label' => 'Revisión', 'icon' => '🔍'],
         ['id' => 'cotizando', 'label' => 'Cotizando', 'icon' => '💲'],
         ['id' => 'reparacion', 'label' => 'En Taller', 'icon' => '🔧'],
-        ['id' => 'calidad', 'label' => 'Revisión Final', 'icon' => '⚙️'], // <-- NUEVO PASO
+        ['id' => 'calidad', 'label' => 'Revisión Final', 'icon' => '⚙️'],
         ['id' => 'listo', 'label' => 'Listo', 'icon' => '🏁'],
-        ['id' => 'entregado', 'label' => 'Entregado', 'icon' => '✅'],// <-- Icono actualizado
+        ['id' => 'entregado', 'label' => 'Entregado', 'icon' => '✅'],
     ];
 
-    // Definimos en qué número de paso vamos según el estatus real
-    $pasoActual = 1;
-    if(str_contains($estatusActual, 'revis') || str_contains($estatusActual, 'diagnost')) $pasoActual = 2;
-    if(str_contains($estatusActual, 'espera') || str_contains($estatusActual, 'cotiz')) $pasoActual = 3;
-    if(str_contains($estatusActual, 'reparacion') || str_contains($estatusActual, 'repara')) $pasoActual = 4;
-    if(str_contains($estatusActual, 'calidad') || str_contains($estatusActual, 'final')) $pasoActual = 5;
-    if(str_contains($estatusActual, 'terminado') || str_contains($estatusActual, 'listo')) $pasoActual = 6;
-    if(str_contains($estatusActual, 'entregado')) $pasoActual = 7; // <--- NUEVA LÓGICA
+    // 1) Match exacto contra los valores oficiales del Select de Filament
+    $mapaEstatusOficial = [
+        'ingresado' => 1,
+        'en revisión' => 2,
+        'en revision' => 2,
+        'cotizando' => 3,
+        'en reparación' => 4,
+        'en reparacion' => 4,
+        'revisión final' => 5,
+        'revision final' => 5,
+        'listo' => 6,
+        'entregado' => 7,
+    ];
+    $pasoActual = $mapaEstatusOficial[$estatusActual] ?? null;
+
+    // 2) Fallback tolerante por palabras clave (captura libre / variaciones de redacción)
+    if (is_null($pasoActual)) {
+        if (str_contains($estatusActual, 'entregado')) $pasoActual = 7;
+        elseif (str_contains($estatusActual, 'terminado') || str_contains($estatusActual, 'listo')) $pasoActual = 6;
+        elseif (str_contains($estatusActual, 'calidad') || str_contains($estatusActual, 'final')) $pasoActual = 5;
+        elseif (str_contains($estatusActual, 'reparacion') || str_contains($estatusActual, 'repara')) $pasoActual = 4;
+        elseif (str_contains($estatusActual, 'espera') || str_contains($estatusActual, 'cotiz')) $pasoActual = 3;
+        elseif (str_contains($estatusActual, 'revis') || str_contains($estatusActual, 'diagnost')) $pasoActual = 2;
+        elseif (str_contains($estatusActual, 'ingres')) $pasoActual = 1;
+    }
+
+    // 3) Si de plano no reconocemos el estatus, no aparentamos "recién ingresado":
+    //    dejamos el tracker en un estado neutro (ningún paso marcado) para no
+    //    mostrarle al cliente información incorrecta.
+    $estatusNoReconocido = is_null($pasoActual);
+    if ($estatusNoReconocido) {
+        \Illuminate\Support\Facades\Log::warning("Portal cliente: estatus de orden #{$orden->id} no reconocido por el tracker: '{$estatusOriginal}'");
+        $pasoActual = 1;
+    }
 
     $mostrarDocumentos = $pasoActual < 7;
+
+    // Botón de contacto por WhatsApp del taller
+    $whatsappUrl = null;
+    $telefonoTaller = $taller->whatsapp_publico ?? $taller->telefono ?? null;
+    if ($telefonoTaller) {
+        $telefonoLimpio = preg_replace('/[^0-9]/', '', $telefonoTaller);
+        if (strlen($telefonoLimpio) == 10) {
+            $telefonoLimpio = '52' . $telefonoLimpio;
+        }
+        if ($telefonoLimpio) {
+            $nombreTaller = $taller->nombre_comercial ?? 'Autonix';
+            $mensajeWhatsapp = "Hola, tengo una duda sobre mi vehículo {$vehiculo->marca} {$vehiculo->modelo} (folio {$orden->folio}) en {$nombreTaller}.";
+            $whatsappUrl = 'https://api.whatsapp.com/send?phone=' . $telefonoLimpio . '&text=' . urlencode($mensajeWhatsapp);
+        }
+    }
 @endphp
 
 <header class="bg-slate-700 text-white p-6 shadow-md rounded-b-3xl">
     <div class="max-w-md mx-auto text-center">
         @if($taller && $taller->logo_path)
-            <img src="{{ \Illuminate\Support\Facades\Storage::disk('s3')->url($taller->logo_path) }}" class="mx-auto h-16 mb-2">
+            <img src="{{ \Illuminate\Support\Facades\Storage::disk('s3')->url($taller->logo_path) }}" alt="{{ $taller->nombre_comercial ?? 'Autonix' }}" class="mx-auto h-16 mb-2">
         @else
             <h1 class="text-2xl font-black tracking-widest uppercase">{{ $taller->nombre_comercial ?? 'Autonix' }}</h1>
         @endif
         <p class="text-xs text-white mt-2 uppercase tracking-widest">Expediente Digital del Vehículo</p>
     </div>
 </header>
+
+@if($whatsappUrl)
+    <div class="max-w-lg mx-auto px-4 -mt-3 relative z-10">
+        <a href="{{ $whatsappUrl }}" target="_blank" rel="noopener" class="flex items-center justify-center gap-2 w-full bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-2xl text-sm font-black uppercase tracking-wider shadow-lg shadow-emerald-500/30 transition-colors">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 004.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91S17.5 2 12.04 2zm0 1.67c4.55 0 8.24 3.69 8.24 8.24s-3.69 8.24-8.24 8.24a8.19 8.19 0 01-4.19-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.18 8.18 0 01-1.26-4.38c0-4.55 3.7-8.24 8.24-8.24zm-4.36 4.7c-.16 0-.42.06-.65.31s-.85.83-.85 2.02.87 2.35 1 2.51c.12.16 1.7 2.72 4.19 3.71 2.07.82 2.49.66 2.94.62.45-.04 1.44-.59 1.64-1.16.2-.57.2-1.06.14-1.16-.06-.1-.22-.16-.45-.28-.24-.12-1.44-.71-1.66-.79-.22-.08-.39-.12-.55.12-.16.24-.63.79-.77.95-.14.16-.28.18-.52.06-.24-.12-1.01-.37-1.93-1.19-.71-.63-1.19-1.42-1.33-1.66-.14-.24-.02-.37.1-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.55-1.34-.76-1.83-.2-.48-.4-.42-.55-.42h-.47z"/></svg>
+            ¿Dudas? Escríbenos por WhatsApp
+        </a>
+    </div>
+@endif
 
 <main class="max-w-lg mx-auto p-4 space-y-6 mt-2">
 
@@ -66,12 +119,13 @@
 
         <div class="relative flex justify-between items-center w-full">
             <div class="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-1 bg-gray-200 z-0 rounded-full"></div>
-            <div class="absolute left-0 top-1/2 transform -translate-y-1/2 h-1 bg-slate-500 z-0 rounded-full transition-all duration-500" style="width: {{ (($pasoActual - 1) / (count($pasos) - 1)) * 100 }}%"></div>
+            <div class="absolute left-0 top-1/2 transform -translate-y-1/2 h-1 bg-slate-500 z-0 rounded-full transition-all duration-500" style="width: {{ $estatusNoReconocido ? 0 : ((($pasoActual - 1) / (count($pasos) - 1)) * 100) }}%"></div>
 
             @foreach($pasos as $index => $paso)
                 @php
                     $numeroPaso = $index + 1;
-                    if($numeroPaso < $pasoActual) { $clase = 'tracker-done'; }
+                    if($estatusNoReconocido) { $clase = 'tracker-pending'; }
+                    elseif($numeroPaso < $pasoActual) { $clase = 'tracker-done'; }
                     elseif($numeroPaso == $pasoActual) { $clase = 'tracker-active shadow-lg shadow-orange-200 scale-110'; }
                     else { $clase = 'tracker-pending'; }
                 @endphp
@@ -81,7 +135,7 @@
                         {{ $paso['icon'] }}
                     </div>
                     <span class="text-[8px] sm:text-[10px] leading-tight font-bold mt-2 text-center absolute -bottom-7 sm:-bottom-5 w-12 sm:w-20
-                            {{ $numeroPaso == $pasoActual ? 'text-orange-600' : 'text-gray-400' }}">
+                            {{ !$estatusNoReconocido && $numeroPaso == $pasoActual ? 'text-orange-600' : 'text-gray-400' }}">
                             {{ $paso['label'] }}
                         </span>
                 </div>
@@ -89,16 +143,19 @@
         </div>
 
         <div class="mt-10 text-center">
-            <p class="text-2xl font-black text-slate-800">{{ mb_strtoupper($orden->estatus) }}</p>
+            <p class="text-2xl font-black text-slate-800 break-words">{{ mb_strtoupper($estatusOriginal) }}</p>
             <p class="text-sm text-gray-500 mt-1">Última actualización: {{ $orden->updated_at->diffForHumans() }}</p>
+            @if($estatusNoReconocido)
+                <p class="text-xs text-amber-600 font-bold mt-2">⏳ Estamos actualizando el estatus de tu vehículo.</p>
+            @endif
         </div>
     </div>
 
     <div class="bg-white rounded-3xl shadow-sm p-5 border border-gray-100 flex items-center justify-between">
         <div>
             <p class="text-xs text-gray-400 font-bold uppercase">Unidad</p>
-            <p class="text-lg font-black text-slate-800">{{ $vehiculo->marca }} {{ $vehiculo->modelo }}</p>
-            <p class="text-sm text-gray-500">{{ $vehiculo->placas }} • {{ $vehiculo->color }}</p>
+            <p class="text-lg font-black text-slate-800">{{ trim(($vehiculo->marca ?? '') . ' ' . ($vehiculo->modelo ?? '')) ?: 'Vehículo sin datos registrados' }}</p>
+            <p class="text-sm text-gray-500">{{ $vehiculo->placas }}@if($vehiculo->color) • {{ $vehiculo->color }} @endif</p>
         </div>
         <div class="text-right">
             <p class="text-xs text-gray-400 font-bold uppercase">Ingreso</p>
@@ -159,8 +216,7 @@
         </div>
     @endif
 
-    <!-- NUEVA GALERÍA DE EVIDENCIA FOTOGRÁFICA -->
-    <!-- EVIDENCIA FOTOGRÁFICA (Estilo Agencia Premium) -->
+    <!-- Evidencia fotográfica -->
     @php
         $todasLasEvidencias = [];
 
@@ -182,9 +238,9 @@
     @endphp
 
     @if(count($todasLasEvidencias) > 0)
-        <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden mt-6">
+        <div x-data="{ lightboxOpen: false, lightboxSrc: '', lightboxCaption: '' }" class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden mt-6">
 
-            <!-- Encabezado Premium -->
+            <!-- Encabezado -->
             <div class="p-5 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
                 <div class="flex items-center gap-3">
                     <div class="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shadow-sm border border-blue-100/50">
@@ -206,12 +262,18 @@
             <div class="p-5">
                 <div class="grid grid-cols-2 gap-4">
                     @foreach($todasLasEvidencias as $index => $evidencia)
-                        <a href="{{ Storage::disk('s3')->url($evidencia['foto']) }}" target="_blank"
-                           class="group relative rounded-2xl overflow-hidden bg-slate-100 shadow-sm ring-1 ring-slate-200/60 hover:ring-blue-400 transition-all duration-300 block
+                        @php
+                            $urlFoto = \Illuminate\Support\Facades\Storage::disk('s3')->url($evidencia['foto']);
+                            $observacionFoto = $evidencia['observacion'] ?? '';
+                            $altFoto = $observacionFoto !== '' ? $observacionFoto : 'Evidencia fotográfica del vehículo ' . $vehiculo->placas;
+                        @endphp
+                        <button type="button"
+                           @click="lightboxOpen = true; lightboxSrc = @js($urlFoto); lightboxCaption = @js($observacionFoto)"
+                           class="group relative rounded-2xl overflow-hidden bg-slate-100 shadow-sm ring-1 ring-slate-200/60 hover:ring-blue-400 transition-all duration-300 block text-left w-full
                    {{ $index === 0 && count($todasLasEvidencias) % 2 !== 0 ? 'col-span-2 aspect-video' : 'aspect-square' }}">
 
                             <!-- Imagen con Zoom Cinemático -->
-                            <img src="{{ Storage::disk('s3')->url($evidencia['foto']) }}" alt="Evidencia Técnica"
+                            <img src="{{ $urlFoto }}" alt="{{ $altFoto }}" loading="lazy" decoding="async"
                                  class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700 ease-out">
 
                             <!-- Overlay Glassmorphism (Aparece en Hover) -->
@@ -224,27 +286,41 @@
                             </div>
 
                             <!-- Observación Elegante -->
-                            @if(!empty($evidencia['observacion']))
+                            @if($observacionFoto !== '')
                                 <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-900/95 via-slate-900/70 to-transparent p-4 pt-14 z-20">
                                     <div class="flex items-start gap-2">
                                         <svg class="w-4 h-4 text-blue-400 mt-0.5 shrink-0 opacity-90" fill="currentColor" viewBox="0 0 20 20">
                                             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
                                         </svg>
                                         <p class="text-xs text-white/95 font-medium leading-relaxed line-clamp-2 drop-shadow-md">
-                                            {{ $evidencia['observacion'] }}
+                                            {{ $observacionFoto }}
                                         </p>
                                     </div>
                                 </div>
                             @endif
-                        </a>
+                        </button>
                     @endforeach
+                </div>
+            </div>
+
+            <!-- Lightbox: ver foto en grande sin salir de la página -->
+            <div x-show="lightboxOpen" x-cloak @keydown.escape.window="lightboxOpen = false"
+                 class="fixed inset-0 z-50 bg-slate-900/90 flex items-center justify-center p-4"
+                 @click="lightboxOpen = false">
+                <button type="button" @click="lightboxOpen = false" aria-label="Cerrar"
+                        class="absolute top-4 right-4 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full p-2">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+                <div class="max-w-3xl w-full" @click.stop>
+                    <img :src="lightboxSrc" :alt="lightboxCaption || 'Evidencia fotográfica ampliada'" class="w-full max-h-[80vh] object-contain rounded-xl">
+                    <p x-show="lightboxCaption" x-text="lightboxCaption" class="text-white/90 text-sm text-center mt-3"></p>
                 </div>
             </div>
         </div>
     @endif
 
     <div x-data="{ open: false }" class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-        <button @click="open = !open" class="w-full flex justify-between items-center p-5 focus:outline-none">
+        <button @click="open = !open" :aria-expanded="open.toString()" aria-controls="historial-servicios-panel" class="w-full flex justify-between items-center p-5 focus:outline-none">
                 <span class="text-sm font-black uppercase text-slate-700 tracking-wider flex items-center gap-2">
                     📚 Historial de Servicios
                     <span class="bg-slate-100 text-slate-600 text-xs py-0.5 px-2 rounded-full">{{ $vehiculo->ordenesServicio->count() }}</span>
@@ -252,7 +328,7 @@
             <svg :class="{'rotate-180': open}" class="w-5 h-5 text-slate-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
         </button>
 
-        <div x-show="open" x-transition class="p-5 pt-0 border-t border-gray-100">
+        <div id="historial-servicios-panel" x-show="open" x-transition class="p-5 pt-0 border-t border-gray-100">
             <div class="relative border-l-2 border-slate-200 ml-3 space-y-6 mt-4">
                 @foreach($vehiculo->ordenesServicio->sortByDesc('created_at') as $ordenPasada)
                     <div class="relative pl-6">
@@ -263,13 +339,13 @@
                         <div class="bg-slate-50 rounded-xl p-4 border border-slate-100 shadow-sm">
                             <div class="flex justify-between items-start mb-2">
                                 <span class="font-bold text-slate-700 text-sm">Folio: {{ $ordenPasada->folio }}</span>
-                                <span class="text-[10px] font-bold text-slate-500 uppercase bg-white border border-slate-200 px-2 py-0.5 rounded-full">{{ $ordenPasada->estatus }}</span>
+                                <span class="text-[10px] font-bold text-slate-500 uppercase bg-white border border-slate-200 px-2 py-0.5 rounded-full">{{ mb_strtoupper($ordenPasada->estatus) }}</span>
                             </div>
 
                             @if($ordenPasada->trabajo_a_realizar)
                                 <div class="mb-3 text-xs text-slate-600 bg-white p-2 rounded-lg border border-slate-100">
                                     <span class="font-bold block text-slate-400 mb-1">TRABAJO A REALIZAR:</span>
-                                    {{ Str::limit($ordenPasada->trabajo_a_realizar, 120) }}
+                                    {{ \Illuminate\Support\Str::limit($ordenPasada->trabajo_a_realizar, 120) }}
                                 </div>
                             @endif
 
