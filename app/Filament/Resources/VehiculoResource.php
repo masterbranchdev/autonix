@@ -97,6 +97,12 @@ class VehiculoResource extends Resource
                     ->toggleable()
                     ->visibleFrom('md'), // Colapsa en móviles
                 \Filament\Tables\Columns\TextColumn::make('anio')
+                    ->searchable()
+                    ->sortable()
+                    ->toggleable()
+                    ->visibleFrom('md'), // Colapsa en móviles
+                \Filament\Tables\Columns\TextColumn::make('vin')
+                    ->searchable()
                     ->sortable()
                     ->toggleable()
                     ->visibleFrom('md'), // Colapsa en móviles

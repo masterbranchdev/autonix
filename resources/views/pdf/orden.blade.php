@@ -116,6 +116,7 @@
         <div class="datos-grid">
             <div class="info-row"><div class="info-label">Marca:</div><div class="info-value">{{ $orden->vehiculo->marca }}</div></div>
             <div class="info-row"><div class="info-label">Modelo:</div><div class="info-value">{{ $orden->vehiculo->modelo }}</div></div>
+            <div class="info-row"><div class="info-label">Año:</div><div class="info-value">{{ $orden->vehiculo->anio }}</div></div>
             <div class="info-row"><div class="info-label">Color:</div><div class="info-value">{{ $orden->vehiculo->color }}</div></div>
             <div class="info-row"><div class="info-label">Placas:</div><div class="info-value">{{ $orden->vehiculo->placas }}</div></div>
             <div class="info-row"><div class="info-label">Km:</div><div class="info-value">{{ $orden->vehiculo->kilometraje }}</div></div>
