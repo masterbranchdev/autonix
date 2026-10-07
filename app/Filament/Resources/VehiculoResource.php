@@ -45,7 +45,22 @@ class VehiculoResource extends Resource
 
                 \Filament\Forms\Components\TextInput::make('vin')
                     ->maxLength(17)
-                    ->unique(ignoreRecord: true),
+                    ->rule(
+                        fn (?\App\Models\Vehiculo $record) => function (string $attribute, $value, \Closure $fail) use ($record) {
+                            // Buscamos si el VIN ya existe en la base de datos
+                            $vehiculoExistente = \App\Models\Vehiculo::with('cliente')
+                                ->where('vin', $value)
+                                // Si estamos editando, ignoramos el vehículo actual
+                                ->when($record, fn($query) => $query->where('id', '!=', $record->id))
+                                ->first();
+
+                            // Si existe, armamos el mensaje de error con el nombre del cliente
+                            if ($vehiculoExistente) {
+                                $nombreCliente = $vehiculoExistente->cliente->nombre ?? 'otro cliente';
+                                $fail("Este VIN ya existe en el cliente {$nombreCliente}, modifique el vínculo e intente de nuevo.");
+                            }
+                        }
+                    ),
                 \Filament\Forms\Components\TextInput::make('placas')
                     ->maxLength(255),
                 \Filament\Forms\Components\TextInput::make('marca')
