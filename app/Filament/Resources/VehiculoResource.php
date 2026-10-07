@@ -44,7 +44,8 @@ class VehiculoResource extends Resource
                     ->required(),
 
                 \Filament\Forms\Components\TextInput::make('vin')
-                    ->maxLength(17),
+                    ->maxLength(17)
+                    ->unique(ignoreRecord: true),
                 \Filament\Forms\Components\TextInput::make('placas')
                     ->maxLength(255),
                 \Filament\Forms\Components\TextInput::make('marca')
