@@ -226,6 +226,7 @@ class RecordatorioResource extends Resource
                         ->visible(fn (\App\Models\Recordatorio $record) => in_array($record->estatus, ['Pendiente', 'Contactado']))
                         ->url(function (\App\Models\Recordatorio $record) {
                             $cliente = $record->cliente;
+                            if (! $cliente) { return null; }
                             $vehiculo = $record->vehiculo;
                             $taller = $record->taller;
 
@@ -258,6 +259,7 @@ class RecordatorioResource extends Resource
                         ->visible(fn (\App\Models\Recordatorio $record) => $record->estatus === 'Cita Agendada')
                         ->url(function (\App\Models\Recordatorio $record) {
                             $cliente = $record->cliente;
+                            if (! $cliente) { return null; }
                             $taller = $record->taller;
 
                             $telefono = preg_replace('/[^0-9]/', '', $cliente->telefono);

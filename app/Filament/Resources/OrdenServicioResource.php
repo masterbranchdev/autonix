@@ -85,13 +85,46 @@ class OrdenServicioResource extends Resource
                     // Magia 2: Al guardar la orden, interceptamos los campos y los guardamos en la tabla de vehículos
                     ->saveRelationshipsUsing(function (\App\Models\OrdenServicio $record, \Filament\Forms\Get $get, $state) {
                         if ($state) {
-                            \App\Models\Vehiculo::find($state)?->update([
+                            $vehiculo = \App\Models\Vehiculo::find($state);
+                            $datos = [
                                 'placas' => $get('placas_vehiculo'),
                                 'kilometraje' => $get('kilometraje_vehiculo'),
-                            ]);
+                            ];
+                            // Si el vehículo no tenía cliente, se le asigna el elegido en la orden
+                            if ($vehiculo && ! $vehiculo->cliente_id && $get('cliente_vehiculo_id')) {
+                                $datos['cliente_id'] = $get('cliente_vehiculo_id');
+                            }
+                            $vehiculo?->update($datos);
                         }
                     })
                     ->required()
+                    ->columnSpanFull(),
+
+                // Obliga a asignar cliente si el vehículo elegido no tiene uno
+                \Filament\Forms\Components\Select::make('cliente_vehiculo_id')
+                    ->label('Cliente del vehículo')
+                    ->helperText('Este vehículo no tiene cliente. Debes asignarle uno antes de generar la orden.')
+                    ->options(fn () => \App\Models\Cliente::where('taller_id', auth()->user()->taller_id)
+                        ->orderBy('nombre')->pluck('nombre', 'id'))
+                    ->searchable()
+                    ->dehydrated(false)
+                    ->visible(fn (\Filament\Forms\Get $get) => filled($get('vehiculo_id'))
+                        && \App\Models\Vehiculo::whereKey($get('vehiculo_id'))->whereNull('cliente_id')->exists())
+                    ->required(fn (\Filament\Forms\Get $get) => filled($get('vehiculo_id'))
+                        && \App\Models\Vehiculo::whereKey($get('vehiculo_id'))->whereNull('cliente_id')->exists())
+                    ->validationMessages(['required' => 'Debes asignar un cliente al vehículo para generar la orden.'])
+                    ->createOptionForm([
+                        \Filament\Forms\Components\TextInput::make('nombre')->required()->maxLength(255),
+                        \Filament\Forms\Components\TextInput::make('telefono')->tel()->maxLength(255),
+                        \Filament\Forms\Components\TextInput::make('correo')->email()->maxLength(255),
+                    ])
+                    ->createOptionUsing(fn (array $data) => \App\Models\Cliente::create([
+                        'taller_id' => auth()->user()->taller_id,
+                        'nombre' => \Illuminate\Support\Str::ascii($data['nombre']),
+                        'telefono' => $data['telefono'] ?? null,
+                        'correo' => $data['correo'] ?? null,
+                    ])->getKey())
+                    ->live()
                     ->columnSpanFull(),
 
                 // --- NUEVOS CAMPOS INTEGRADOS EN EL FORMULARIO (Actualizan al vehículo) ---
@@ -677,7 +710,7 @@ class OrdenServicioResource extends Resource
                                 ->title('Estatus actualizado a: ' . $data['estatus'])
                                 ->success();
 
-                            if ($data['estatus'] === 'Listo') {
+                            if ($data['estatus'] === 'Listo' && $record->vehiculo?->cliente) {
                                 $vehiculo = $record->vehiculo;
                                 $cliente = $vehiculo->cliente;
                                 $taller = $record->taller;
@@ -734,6 +767,7 @@ class OrdenServicioResource extends Resource
                         ->url(function (\App\Models\OrdenServicio $record) {
                             $vehiculo = $record->vehiculo;
                             $cliente = $vehiculo->cliente;
+                            if (! $cliente) { return null; }
                             $taller = $record->taller;
 
                             $telefono = preg_replace('/[^0-9]/', '', $cliente->telefono);
@@ -758,6 +792,7 @@ class OrdenServicioResource extends Resource
                         ->url(function (\App\Models\OrdenServicio $record) {
                             $vehiculo = $record->vehiculo;
                             $cliente = $vehiculo->cliente;
+                            if (! $cliente) { return null; }
                             $taller = $record->taller;
 
                             $telefono = preg_replace('/[^0-9]/', '', $cliente->telefono);
@@ -780,6 +815,7 @@ class OrdenServicioResource extends Resource
                         ->url(function (\App\Models\OrdenServicio $record) {
                             $vehiculo = $record->vehiculo;
                             $cliente = $vehiculo->cliente;
+                            if (! $cliente) { return null; }
                             $taller = $record->taller;
 
                             $telefono = preg_replace('/[^0-9]/', '', $cliente->telefono);

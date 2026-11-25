@@ -132,8 +132,8 @@
 
     <div class="box col-40">
         <div class="section-title">Datos del Cliente</div>
-        <div class="info-row-full"><div class="info-label">Nombre:</div><div class="info-value">{{ $orden->vehiculo->cliente->nombre }}</div></div>
-        <div class="info-row-full"><div class="info-label">Teléfono:</div><div class="info-value">{{ $orden->vehiculo->cliente->telefono }}</div></div>
+        <div class="info-row-full"><div class="info-label">Nombre:</div><div class="info-value">{{ $orden->vehiculo?->cliente?->nombre }}</div></div>
+        <div class="info-row-full"><div class="info-label">Teléfono:</div><div class="info-value">{{ $orden->vehiculo?->cliente?->telefono }}</div></div>
         <div class="info-row-full"><div class="info-label">Email:</div><div class="info-value">{{ $orden->vehiculo->cliente->email ?? 'N/A' }}</div></div>
         <div class="info-row-full"><div class="info-label">Ingreso:</div><div class="info-value">{{ \Carbon\Carbon::parse($orden->fecha_ingreso)->format('d/m/Y h:i A') }}</div></div>
     </div>
@@ -246,7 +246,7 @@
             <div class="firma-line">
                 FIRMA DE CONFORMIDAD<br>
                 <span style="font-weight: normal; font-size: 10px; color: #4b5563;">
-                        {{ $orden->persona_que_entrega ?: ($orden->vehiculo->cliente->nombre ?? 'Firma del Cliente') }}
+                        {{ $orden->persona_que_entrega ?: ($orden->vehiculo?->cliente?->nombre ?? 'Firma del Cliente') }}
                     </span>
             </div>
         </div>

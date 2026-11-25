@@ -9,6 +9,18 @@ class Vehiculo extends Model
     protected $table = 'vehiculos';
     protected $guarded = [];
 
+    protected static function booted(): void
+    {
+        // Un vehículo nunca se crea sin cliente
+        static::creating(function (Vehiculo $vehiculo) {
+            if (empty($vehiculo->cliente_id)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'cliente_id' => 'Debes asignar un cliente al vehículo.',
+                ]);
+            }
+        });
+    }
+
     public function cliente()
     {
         return $this->belongsTo(Cliente::class);

@@ -41,7 +41,16 @@ class VehiculoResource extends Resource
                     ->relationship('cliente', 'nombre')
                     ->searchable()
                     ->preload()
-                    ->required(),
+                    ->required()
+                    ->validationMessages(['required' => 'Debes asignar un cliente al vehículo.'])
+                    ->createOptionForm([
+                        \Filament\Forms\Components\Hidden::make('taller_id')
+                            ->default(auth()->user()->taller_id),
+                        \Filament\Forms\Components\TextInput::make('nombre')->required()->maxLength(255)
+                            ->dehydrateStateUsing(fn ($state) => \Illuminate\Support\Str::ascii($state)),
+                        \Filament\Forms\Components\TextInput::make('telefono')->tel()->maxLength(255),
+                        \Filament\Forms\Components\TextInput::make('correo')->email()->maxLength(255),
+                    ]),
 
                 \Filament\Forms\Components\TextInput::make('vin')
                     ->maxLength(17)

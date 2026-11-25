@@ -385,6 +385,7 @@ class InspeccionResource extends Resource
                             $orden = $record->ordenServicio;
                             $vehiculo = $orden->vehiculo;
                             $cliente = $vehiculo->cliente;
+                            if (! $cliente) { return null; }
                             $taller = $orden->taller;
 
                             $telefono = preg_replace('/[^0-9]/', '', $cliente->telefono);
